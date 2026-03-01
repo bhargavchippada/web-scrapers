@@ -15,6 +15,8 @@ from web_scrapers.models.base import SignalEvent
 from web_scrapers.models.reddit import RedditPost
 from web_scrapers.scrapers.base import BaseScraper
 
+_ALLOWED_SORTS = frozenset({"new", "hot", "top", "rising", "controversial"})
+
 
 def _build_client() -> praw.Reddit:
     return praw.Reddit(
@@ -87,6 +89,8 @@ class RedditScraper(BaseScraper):
         sort: str,
         limit: int,
     ) -> list[SignalEvent]:
+        if sort not in _ALLOWED_SORTS:
+            raise ValueError(f"Invalid sort method '{sort}'. Allowed: {sorted(_ALLOWED_SORTS)}")
         subreddit = client.subreddit(subreddit_name)
         listing = getattr(subreddit, sort)(limit=limit)
         events: list[SignalEvent] = []

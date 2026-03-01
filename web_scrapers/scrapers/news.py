@@ -24,17 +24,20 @@ _TIMEOUT = 30.0
 def _parse_published(entry: Any) -> datetime | None:
     """Extract published datetime from a feed entry."""
     published_parsed = getattr(entry, "published_parsed", None)
-    if isinstance(published_parsed, struct_time):
+    if not isinstance(published_parsed, struct_time):
+        return None
+    try:
         return datetime.fromtimestamp(mktime(published_parsed), tz=UTC)
-    return None
+    except (ValueError, OSError, OverflowError):
+        return None
 
 
 def _entry_id(entry: Any, feed_name: str) -> str:
     """Generate a stable ID for a feed entry."""
-    raw_id = getattr(entry, "id", "") or getattr(entry, "link", "")
+    raw_id = str(getattr(entry, "id", "") or getattr(entry, "link", ""))
     if raw_id:
         return hashlib.sha256(raw_id.encode()).hexdigest()[:16]
-    title = getattr(entry, "title", "")
+    title = str(getattr(entry, "title", ""))
     return hashlib.sha256(f"{feed_name}:{title}".encode()).hexdigest()[:16]
 
 

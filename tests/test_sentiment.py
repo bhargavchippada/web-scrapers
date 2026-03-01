@@ -34,3 +34,27 @@ class TestScoreSentiment:
         assert 0.0 <= result.negative <= 1.0
         assert 0.0 <= result.neutral <= 1.0
         assert -1.0 <= result.compound <= 1.0
+
+    def test_unicode_emoji_text(self) -> None:
+        result = score_sentiment("🚀🌙💎🙌 bullish af!!!")
+        # VADER doesn't score emoji, but should not crash
+        assert -1.0 <= result.compound <= 1.0
+
+    def test_all_numbers(self) -> None:
+        result = score_sentiment("123 456 789 000")
+        assert result.compound == 0.0
+
+    def test_very_long_text(self) -> None:
+        text = "This is great! " * 500
+        result = score_sentiment(text)
+        assert result.compound > 0.0
+
+    def test_mixed_sentiment(self) -> None:
+        result = score_sentiment("Good news and bad news today")
+        # Mixed sentiment — compound could go either way
+        assert -1.0 <= result.compound <= 1.0
+
+    def test_financial_jargon(self) -> None:
+        result = score_sentiment("Massive short squeeze incoming, bears are dead")
+        # VADER may not perfectly parse financial jargon but should not crash
+        assert -1.0 <= result.compound <= 1.0

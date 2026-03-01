@@ -34,7 +34,11 @@ settings = Settings()
 
 def load_yaml_config(filename: str) -> dict[str, Any]:
     """Load a YAML config file from the config/ directory."""
-    path = CONFIG_DIR / filename
+    if ".." in filename or filename.startswith("/"):
+        raise ValueError(f"Invalid config filename: {filename}")
+    path = (CONFIG_DIR / filename).resolve()
+    if not path.is_relative_to(CONFIG_DIR.resolve()):
+        raise ValueError(f"Config file escapes config directory: {filename}")
     if not path.exists():
         return {}
     with open(path) as f:
