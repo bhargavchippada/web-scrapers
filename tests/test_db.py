@@ -161,18 +161,25 @@ class TestEventRepository:
         assert inserted == 2
 
     def test_bulk_upsert_dedup(self, db_session: Session) -> None:
+        """Re-scraping the same event_id refreshes payload and scraped_at."""
         repo = EventRepository(db_session)
-        events = [_make_event(event_id="reddit:d1")]
-        repo.bulk_upsert(events)
-        inserted = repo.bulk_upsert(events)
-        assert inserted == 0
+        repo.bulk_upsert([_make_event(event_id="reddit:d1", payload={"score": 1})])
+        repo.bulk_upsert([_make_event(event_id="reddit:d1", payload={"score": 100})])
+        row = repo.get_by_event_id("reddit:d1")
+        assert row is not None
+        assert row.payload["score"] == 100
 
     def test_bulk_upsert_mixed(self, db_session: Session) -> None:
+        """Existing events are refreshed; new events are inserted."""
         repo = EventRepository(db_session)
-        repo.bulk_upsert([_make_event(event_id="reddit:m1")])
-        events = [_make_event(event_id="reddit:m1"), _make_event(event_id="reddit:m2")]
-        inserted = repo.bulk_upsert(events)
-        assert inserted == 1
+        repo.bulk_upsert([_make_event(event_id="reddit:m1", payload={"score": 1})])
+        events = [
+            _make_event(event_id="reddit:m1", payload={"score": 99}),
+            _make_event(event_id="reddit:m2"),
+        ]
+        repo.bulk_upsert(events)
+        assert repo.get_by_event_id("reddit:m1").payload["score"] == 99
+        assert repo.get_by_event_id("reddit:m2") is not None
 
     def test_bulk_upsert_empty(self, db_session: Session) -> None:
         repo = EventRepository(db_session)

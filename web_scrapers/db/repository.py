@@ -27,9 +27,10 @@ class EventRepository:
         self._session = session
 
     def bulk_upsert(self, events: list[SignalEvent], run_id: int | None = None) -> int:
-        """Insert events, skipping duplicates via ON CONFLICT DO NOTHING.
+        """Insert or refresh events via ON CONFLICT DO UPDATE.
 
-        Returns the count of newly inserted events.
+        Updates payload and scraped_at on conflict; preserves run_id and created_at
+        from the first insert. Returns the count of rows affected (inserts + updates).
         """
         if not events:
             return 0
@@ -47,7 +48,13 @@ class EventRepository:
         ]
 
         stmt = pg_insert(SignalEventRow).values(values)
-        stmt = stmt.on_conflict_do_nothing(index_elements=["event_id"])
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["event_id"],
+            set_={
+                "payload": stmt.excluded.payload,
+                "scraped_at": stmt.excluded.scraped_at,
+            },
+        )
         result = self._session.execute(stmt)
         self._session.commit()
         return result.rowcount

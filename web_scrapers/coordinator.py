@@ -29,7 +29,7 @@ def run_scraper(scraper: BaseScraper) -> list[SignalEvent]:
 
 
 def persist_events(events: list[SignalEvent], run_id: int | None = None) -> int:
-    """Persist events to the database, returning count of newly inserted (non-duplicate)."""
+    """Persist events to the database, returning count of newly inserted events."""
     if not events:
         return 0
     from web_scrapers.db.engine import get_session
@@ -38,8 +38,14 @@ def persist_events(events: list[SignalEvent], run_id: int | None = None) -> int:
     session = get_session()
     try:
         repo = EventRepository(session)
-        new_count = repo.bulk_upsert(events, run_id=run_id)
-        logger.info("Persisted {}/{} new events (rest were duplicates)", new_count, len(events))
+        all_ids = [e.event_id for e in events]
+        new_ids = repo.get_new_event_ids(all_ids)
+        repo.bulk_upsert(events, run_id=run_id)
+        new_count = len(new_ids)
+        logger.info(
+            "Persisted {} events ({} new, {} refreshed)",
+            len(events), new_count, len(events) - new_count,
+        )
         return new_count
     finally:
         session.close()
@@ -103,10 +109,10 @@ def run_tracked(
             all_ids = [e.event_id for e in events]
             new_ids = event_repo.get_new_event_ids(all_ids) if all_ids else set()
 
-            new_count = event_repo.bulk_upsert(events, run_id=run.id)
+            event_repo.bulk_upsert(events, run_id=run.id)
 
             ingested = 0
-            if ingest and new_count > 0:
+            if ingest and new_ids:
                 import asyncio
 
                 from web_scrapers.bridge.nexus import ingest_events
@@ -115,8 +121,8 @@ def run_tracked(
                 if new_events:
                     ingested = asyncio.run(ingest_events(new_events))
 
-            run_repo.complete_run(run, len(events), new_count, ingested)
-            return len(events), new_count, ingested
+            run_repo.complete_run(run, len(events), len(new_ids), ingested)
+            return len(events), len(new_ids), ingested
 
         except Exception as exc:
             run_repo.complete_run(run, 0, 0, error=str(exc))
