@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Application settings loaded from environment variables and YAML configs."""
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     neo4j_url: str = "bolt://localhost:7687"
     qdrant_url: str = "http://localhost:6333"
     ollama_url: str = "http://localhost:11434"
+
+    database_url: str = "postgresql://admin:password123@localhost:5432/turiya_memory"
 
     scraper_log_level: str = "INFO"
 
@@ -55,3 +57,9 @@ def get_feed_targets() -> list[dict[str, Any]]:
     """Load RSS feed targets from config/feeds.yaml."""
     config = load_yaml_config("feeds.yaml")
     return config.get("feeds", [])
+
+
+def get_job_definitions() -> list[dict[str, Any]]:
+    """Load job definitions from config/jobs.yaml."""
+    config = load_yaml_config("jobs.yaml")
+    return config.get("jobs", [])

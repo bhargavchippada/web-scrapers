@@ -1,0 +1,14 @@
+# Version: v0.2.0
+# Default scraping job definitions — loaded into DB via `db seed-jobs`
+jobs:
+  - name: reddit-financial
+    scraper: reddit
+    schedule: "*/30 * * * *"    # Every 30 minutes
+    enabled: true
+    config: {}
+
+  - name: news-rss
+    scraper: news
+    schedule: "*/15 * * * *"    # Every 15 minutes
+    enabled: true
+    config: {}

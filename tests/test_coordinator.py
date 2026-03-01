@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Tests for the scraper coordinator."""
 
 from __future__ import annotations
@@ -33,8 +33,9 @@ class TestCoordinator:
         events = run_scraper(mock_scraper)
         assert len(events) == 1
 
+    @patch("web_scrapers.coordinator.persist_events", return_value=1)
     @patch("web_scrapers.coordinator.get_all_scrapers")
-    def test_run_all(self, mock_get: MagicMock) -> None:
+    def test_run_all(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "mock"
         mock_event = SignalEvent(
@@ -45,9 +46,26 @@ class TestCoordinator:
 
         events = run_all()
         assert len(events) == 1
+        mock_persist.assert_called_once()
 
+    @patch("web_scrapers.coordinator.persist_events", return_value=0)
     @patch("web_scrapers.coordinator.get_all_scrapers")
-    def test_run_single_unknown(self, mock_get: MagicMock) -> None:
+    def test_run_all_no_persist(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
+        mock_scraper = MagicMock()
+        mock_scraper.name = "mock"
+        mock_event = SignalEvent(
+            source="mock", event_type="test", payload={}, event_id="m:1"
+        )
+        mock_scraper.scrape.return_value = [mock_event]
+        mock_get.return_value = [mock_scraper]
+
+        events = run_all(persist=False)
+        assert len(events) == 1
+        mock_persist.assert_not_called()
+
+    @patch("web_scrapers.coordinator.persist_events", return_value=0)
+    @patch("web_scrapers.coordinator.get_all_scrapers")
+    def test_run_single_unknown(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "reddit"
         mock_get.return_value = [mock_scraper]
@@ -55,8 +73,9 @@ class TestCoordinator:
         events = run_single("nonexistent")
         assert events == []
 
+    @patch("web_scrapers.coordinator.persist_events", return_value=1)
     @patch("web_scrapers.coordinator.get_all_scrapers")
-    def test_run_single_known(self, mock_get: MagicMock) -> None:
+    def test_run_single_known(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "reddit"
         mock_event = SignalEvent(
@@ -67,3 +86,4 @@ class TestCoordinator:
 
         events = run_single("reddit")
         assert len(events) == 1
+        mock_persist.assert_called_once()

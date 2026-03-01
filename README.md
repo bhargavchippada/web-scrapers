@@ -1,32 +1,37 @@
 # Web Scrapers
 
-> Version: v0.1.0 | Agent: Ari | Project: Nexus
+> Version: v0.2.0 | Agent: Ari | Project: Nexus
 
-Modular web scraping toolkit for financial intelligence gathering. Collects data from Reddit, news RSS feeds, and (future) YouTube transcripts and Twitter/X — feeding it into Nexus RAG for semantic search and graph analysis by AI agents.
+Modular web scraping toolkit for financial intelligence gathering. Collects data from Reddit, news RSS feeds, and (future) YouTube transcripts and Twitter/X — feeding it into a deduplicated PostgreSQL database and Nexus RAG for semantic search and graph analysis by AI agents.
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                    CLI (typer)                    │
-│         scrape reddit | scrape news | run-all    │
-├──────────────────────────────────────────────────┤
-│                  Coordinator                     │
-│         Orchestrates scrapers + ingestion        │
-├────────────┬─────────────┬───────────────────────┤
-│  Reddit    │  News/RSS   │  (Future: YT, X)      │
-│  Scraper   │  Scraper    │                       │
-├────────────┴─────────────┴───────────────────────┤
-│              BaseScraper ABC                      │
-│         scrape() → list[SignalEvent]             │
-├──────────────────────────────────────────────────┤
-│         Models (Pydantic v2)                     │
-│   SignalEvent → RedditPost | NewsArticle | ...   │
-├──────────────────────────────────────────────────┤
-│   Analysis (VADER sentiment) │ Nexus Bridge      │
-│                              │ (RAG ingestion)   │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         CLI (typer)                              │
+│  scrape reddit | scrape news | run-all | db | jobs | daemon     │
+├──────────────────────────────────────────────────────────────────┤
+│                   Scheduler (APScheduler)                        │
+│            Cron-triggered jobs → run_tracked()                   │
+├──────────────────────────────────────────────────────────────────┤
+│                      Coordinator                                 │
+│     scrape() → persist to DB (dedup) → (optional) RAG ingest    │
+├────────────┬─────────────┬───────────────────────────────────────┤
+│  Reddit    │  News/RSS   │  (Future: YT, X, SEC)                │
+│  Scraper   │  Scraper    │                                       │
+├────────────┴─────────────┴───────────────────────────────────────┤
+│              BaseScraper ABC → list[SignalEvent]                  │
+├─────────────────────────────┬────────────────────────────────────┤
+│   DB Layer (SQLAlchemy 2.0) │     Nexus RAG Bridge               │
+│   Repository (DAO)          │  (Neo4j + Qdrant)                  │
+│   EventRepo | RunRepo       │                                    │
+│   JobRepo                   │                                    │
+│   ────────────────────────  │                                    │
+│   PostgreSQL 16 (pgvector)  │                                    │
+└─────────────────────────────┴────────────────────────────────────┘
 ```
+
+**Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING) → only NEW events forwarded to Nexus RAG bridge.
 
 ## Quick Start
 
@@ -38,9 +43,13 @@ poetry install
 
 # Copy and configure environment
 cp .env.example .env
-# Edit .env with your Reddit API credentials
+# Edit .env with your Reddit API credentials + DATABASE_URL
 
-# Run news scraper (no API key needed)
+# Initialize database (requires PostgreSQL running)
+poetry run python -m web_scrapers.cli db init
+poetry run python -m web_scrapers.cli db seed-jobs
+
+# Run news scraper (no API key needed — persists to DB)
 poetry run python -m web_scrapers.cli scrape news
 
 # Run Reddit scraper (requires API keys)
@@ -52,9 +61,86 @@ poetry run python -m web_scrapers.cli run-all
 # Run all + ingest into Nexus RAG
 poetry run python -m web_scrapers.cli run-all --ingest
 
-# Health check
+# Health check (scrapers + DB)
 poetry run python -m web_scrapers.cli health
 ```
+
+## Database
+
+### Setup
+
+PostgreSQL 16 must be running. The default config uses the shared `turiya_memory` database with a `web_scrapers` schema for tenant isolation.
+
+```bash
+# Initialize schema + run migrations
+poetry run python -m web_scrapers.cli db init
+
+# Load default job definitions from config/jobs.yaml
+poetry run python -m web_scrapers.cli db seed-jobs
+```
+
+### Schema (3 tables in `web_scrapers` schema)
+
+| Table | Purpose |
+|---|---|
+| `signal_events` | Deduplicated event store (UNIQUE on `event_id`) |
+| `scrape_runs` | Execution history with status, counts, errors |
+| `scrape_jobs` | Scheduled job definitions (name, scraper, cron schedule) |
+
+### Deduplication
+
+Events are identified by `event_id` (e.g., `reddit:abc123`, `news:fa3b...`). Inserts use `ON CONFLICT (event_id) DO NOTHING` for zero-cost idempotent upserts. Running the same scraper twice produces 0 new events.
+
+### Querying
+
+```bash
+# Event stats
+poetry run python -m web_scrapers.cli db stats
+
+# Query stored events
+poetry run python -m web_scrapers.cli db query --source reddit --limit 10
+poetry run python -m web_scrapers.cli db query --source reddit --subreddit wallstreetbets --since 2026-03-01
+poetry run python -m web_scrapers.cli db query --source news --json
+```
+
+## Job Scheduler
+
+### Job Management
+
+```bash
+# List all configured jobs
+poetry run python -m web_scrapers.cli jobs list
+
+# Manually trigger a tracked job
+poetry run python -m web_scrapers.cli jobs run reddit-financial
+
+# Enable/disable jobs
+poetry run python -m web_scrapers.cli jobs enable reddit-financial
+poetry run python -m web_scrapers.cli jobs disable news-rss
+
+# View run history
+poetry run python -m web_scrapers.cli jobs history
+poetry run python -m web_scrapers.cli jobs history --scraper reddit --limit 10
+```
+
+### Daemon Mode
+
+Start a long-running scheduler that executes enabled jobs on their cron schedules:
+
+```bash
+# Run daemon (persists to DB only)
+poetry run python -m web_scrapers.cli daemon
+
+# Run daemon + ingest new events into Nexus RAG
+poetry run python -m web_scrapers.cli daemon --ingest
+```
+
+### Default Jobs (`config/jobs.yaml`)
+
+| Job | Scraper | Schedule |
+|---|---|---|
+| `reddit-financial` | reddit | Every 30 min (`*/30 * * * *`) |
+| `news-rss` | news | Every 15 min (`*/15 * * * *`) |
 
 ## Scrapers
 
@@ -98,6 +184,7 @@ SignalEvent(
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
+| `DATABASE_URL` | Yes | `postgresql://admin:password123@localhost:5432/turiya_memory` | PostgreSQL connection URL |
 | `REDDIT_CLIENT_ID` | For Reddit | — | Reddit OAuth app client ID |
 | `REDDIT_CLIENT_SECRET` | For Reddit | — | Reddit OAuth app secret |
 | `REDDIT_USER_AGENT` | No | `web-scrapers/0.1` | Reddit API user agent |
@@ -109,10 +196,11 @@ SignalEvent(
 
 - `config/subreddits.yaml` — Target subreddits with sort order, limit, category
 - `config/feeds.yaml` — RSS feed URLs with name and category
+- `config/jobs.yaml` — Scheduled job definitions (name, scraper, cron, enabled)
 
 ## RAG Ingestion
 
-When using `--ingest`, events are pushed to Nexus RAG:
+When using `--ingest`, only **new** events (after deduplication) are pushed to Nexus RAG:
 
 - **project_id:** `WEB_SCRAPERS`
 - **scope:** `WEB_RESEARCH`
@@ -130,15 +218,20 @@ When using `--ingest`, events are pushed to Nexus RAG:
 ## Testing
 
 ```bash
-poetry run pytest                    # Run all tests
-poetry run pytest --cov=web_scrapers # With coverage
-poetry run ruff check .              # Lint check
-poetry run ruff format .             # Auto-format
+poetry run pytest                              # Unit tests (no DB needed)
+poetry run pytest -m integration               # Integration tests (requires PostgreSQL)
+poetry run pytest --cov=web_scrapers           # With coverage
+poetry run ruff check .                        # Lint check
+poetry run ruff format .                       # Auto-format
 ```
 
 ## Tech Stack
 
 - **Python** 3.11+
+- **SQLAlchemy 2.0** — ORM + database layer (sync)
+- **psycopg2** — PostgreSQL driver
+- **Alembic** — Database migrations
+- **APScheduler 3.x** — Cron-based job scheduling
 - **praw** — Reddit API client
 - **feedparser** — RSS/Atom parsing
 - **httpx** — HTTP client
@@ -148,9 +241,10 @@ poetry run ruff format .             # Auto-format
 - **loguru** — Structured logging
 - **Poetry** — Package management
 
-## Future (Phase 2)
+## Future (Phase 3)
 
 - **YouTube Transcript Scraper** — `youtube-transcript-api` for financial channel transcripts
 - **Twitter/X Scraper** — `tweepy` or `snscrape` for market-moving tweets
 - **SEC EDGAR Scraper** — 8-K filings (reference: `~/.openclaw/workspace/projects/sentinel/sec_scraper.py`)
-- **Scheduled runs** — APScheduler or cron integration
+- **pgvector embeddings** — Store embeddings in PostgreSQL alongside events
+- **Grafana dashboards** — Visualize scrape stats and event trends
