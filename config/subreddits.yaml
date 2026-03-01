@@ -1,0 +1,27 @@
+# Version: v0.1.0
+# Target subreddits for financial intelligence scraping
+subreddits:
+  - name: wallstreetbets
+    sort: new
+    limit: 25
+    category: meme_stocks
+  - name: options
+    sort: new
+    limit: 25
+    category: options_trading
+  - name: stocks
+    sort: hot
+    limit: 25
+    category: general
+  - name: cryptocurrency
+    sort: new
+    limit: 25
+    category: crypto
+  - name: investing
+    sort: hot
+    limit: 25
+    category: general
+  - name: SecurityAnalysis
+    sort: new
+    limit: 15
+    category: fundamentals
