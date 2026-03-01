@@ -98,6 +98,11 @@ def run_tracked(
 
         try:
             events = run_single(scraper_name, persist=False)
+
+            # Detect new events in a single query BEFORE upserting
+            all_ids = [e.event_id for e in events]
+            new_ids = event_repo.get_new_event_ids(all_ids) if all_ids else set()
+
             new_count = event_repo.bulk_upsert(events, run_id=run.id)
 
             ingested = 0
@@ -106,13 +111,7 @@ def run_tracked(
 
                 from web_scrapers.bridge.nexus import ingest_events
 
-                # Only ingest events that were actually new
-                new_event_ids = set()
-                for e in events:
-                    row = event_repo.get_by_event_id(e.event_id)
-                    if row and row.run_id == run.id:
-                        new_event_ids.add(e.event_id)
-                new_events = [e for e in events if e.event_id in new_event_ids]
+                new_events = [e for e in events if e.event_id in new_ids]
                 if new_events:
                     ingested = asyncio.run(ingest_events(new_events))
 

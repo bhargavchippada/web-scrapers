@@ -30,13 +30,15 @@ def get_latest_events(source: str | None = None, limit: int = 50) -> list[dict[s
         session.close()
 
 
-def get_events_since(hours: int = 24, source: str | None = None) -> list[dict[str, Any]]:
-    """Get all events from the last N hours."""
+def get_events_since(
+    hours: int = 24, source: str | None = None, limit: int = 10000
+) -> list[dict[str, Any]]:
+    """Get events from the last N hours."""
     since = datetime.now(UTC) - timedelta(hours=hours)
     session = get_session()
     try:
         repo = EventRepository(session)
-        rows = repo.query_events(source=source, since=since, limit=10000)
+        rows = repo.query_events(source=source, since=since, limit=limit)
         return [
             {
                 "event_id": r.event_id,

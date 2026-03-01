@@ -5,7 +5,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from web_scrapers.coordinator import get_all_scrapers, run_all, run_scraper, run_single
+import pytest
+
+from web_scrapers.coordinator import (
+    get_all_scrapers,
+    run_all,
+    run_scraper,
+    run_single,
+    run_tracked,
+)
 from web_scrapers.models.base import SignalEvent
 
 
@@ -87,3 +95,95 @@ class TestCoordinator:
         events = run_single("reddit")
         assert len(events) == 1
         mock_persist.assert_called_once()
+
+
+class TestRunTracked:
+    @patch("web_scrapers.coordinator.run_single")
+    @patch("web_scrapers.db.repository.RunRepository")
+    @patch("web_scrapers.db.repository.EventRepository")
+    @patch("web_scrapers.db.engine.get_session")
+    def test_run_tracked_success(
+        self,
+        mock_get_session: MagicMock,
+        mock_event_cls: MagicMock,
+        mock_run_cls: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        mock_event = SignalEvent(
+            source="reddit", event_type="post", payload={}, event_id="r:1"
+        )
+        mock_run.return_value = [mock_event]
+        mock_get_session.return_value = MagicMock()
+
+        mock_run_repo = mock_run_cls.return_value
+        mock_event_repo = mock_event_cls.return_value
+        mock_run_obj = MagicMock()
+        mock_run_obj.id = 42
+        mock_run_repo.create_run.return_value = mock_run_obj
+        mock_event_repo.get_new_event_ids.return_value = {"r:1"}
+        mock_event_repo.bulk_upsert.return_value = 1
+
+        total, new, ingested = run_tracked("reddit", job_name="test-job")
+
+        assert total == 1
+        assert new == 1
+        assert ingested == 0
+        mock_run_repo.complete_run.assert_called_once_with(mock_run_obj, 1, 1, 0)
+
+    @patch("web_scrapers.coordinator.run_single")
+    @patch("web_scrapers.db.repository.RunRepository")
+    @patch("web_scrapers.db.repository.EventRepository")
+    @patch("web_scrapers.db.engine.get_session")
+    def test_run_tracked_failure(
+        self,
+        mock_get_session: MagicMock,
+        mock_event_cls: MagicMock,
+        mock_run_cls: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        mock_run.side_effect = RuntimeError("scrape failed")
+        mock_get_session.return_value = MagicMock()
+
+        mock_run_repo = mock_run_cls.return_value
+        mock_run_obj = MagicMock()
+        mock_run_obj.id = 99
+        mock_run_repo.create_run.return_value = mock_run_obj
+
+        with pytest.raises(RuntimeError, match="scrape failed"):
+            run_tracked("reddit")
+
+        mock_run_repo.complete_run.assert_called_once()
+        call_args = mock_run_repo.complete_run.call_args
+        assert "scrape failed" in str(call_args)
+
+    @patch("web_scrapers.coordinator.run_single")
+    @patch("web_scrapers.db.repository.RunRepository")
+    @patch("web_scrapers.db.repository.EventRepository")
+    @patch("web_scrapers.db.engine.get_session")
+    def test_run_tracked_dedup(
+        self,
+        mock_get_session: MagicMock,
+        mock_event_cls: MagicMock,
+        mock_run_cls: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        """When all events are duplicates, new_count=0 and no ingestion."""
+        mock_event = SignalEvent(
+            source="reddit", event_type="post", payload={}, event_id="r:dup"
+        )
+        mock_run.return_value = [mock_event]
+        mock_get_session.return_value = MagicMock()
+
+        mock_run_repo = mock_run_cls.return_value
+        mock_event_repo = mock_event_cls.return_value
+        mock_run_obj = MagicMock()
+        mock_run_obj.id = 1
+        mock_run_repo.create_run.return_value = mock_run_obj
+        mock_event_repo.get_new_event_ids.return_value = set()
+        mock_event_repo.bulk_upsert.return_value = 0
+
+        total, new, ingested = run_tracked("reddit", ingest=True)
+
+        assert total == 1
+        assert new == 0
+        assert ingested == 0

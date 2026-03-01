@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -118,3 +119,103 @@ class TestHealth:
         with _mock_db_health():
             result = runner.invoke(app, ["health"])
         assert result.exit_code == 1
+
+    @patch("web_scrapers.scrapers.news.NewsScraper.health_check", return_value=True)
+    @patch("web_scrapers.scrapers.reddit.RedditScraper.health_check", return_value=True)
+    @patch("web_scrapers.db.engine.get_engine", side_effect=Exception("connection refused"))
+    def test_health_db_failure(self, *_: MagicMock) -> None:
+        result = runner.invoke(app, ["health"])
+        assert result.exit_code == 1
+        assert "database: FAIL" in result.output
+
+
+class TestDbQuery:
+    def test_db_query_text_output(self) -> None:
+        mock_session = MagicMock()
+        mock_row = MagicMock()
+        mock_row.event_id = "reddit:abc123"
+        mock_row.source = "reddit"
+        mock_row.event_type = "post"
+        mock_row.payload = {"title": "Test Post Title"}
+        mock_row.scraped_at = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
+
+        with (
+            patch("web_scrapers.db.engine.get_session", return_value=mock_session),
+            patch(
+                "web_scrapers.db.repository.EventRepository.query_events",
+                return_value=[mock_row],
+            ),
+        ):
+            result = runner.invoke(app, ["db", "query", "--source", "reddit"])
+        assert result.exit_code == 0
+        assert "1 events" in result.output
+        assert "reddit:abc123" in result.output
+
+    def test_db_query_json_output(self) -> None:
+        mock_session = MagicMock()
+        mock_row = MagicMock()
+        mock_row.event_id = "news:xyz"
+        mock_row.source = "news"
+        mock_row.event_type = "article"
+        mock_row.payload = {"title": "Article"}
+        mock_row.scraped_at = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
+
+        with (
+            patch("web_scrapers.db.engine.get_session", return_value=mock_session),
+            patch(
+                "web_scrapers.db.repository.EventRepository.query_events",
+                return_value=[mock_row],
+            ),
+        ):
+            result = runner.invoke(app, ["db", "query", "--source", "news", "--json"])
+        assert result.exit_code == 0
+        assert '"source": "news"' in result.output or '"source":"news"' in result.output
+
+
+class TestJobsRun:
+    def test_jobs_run_success(self) -> None:
+        mock_session = MagicMock()
+        mock_job = MagicMock()
+        mock_job.id = 1
+        mock_job.name = "reddit-financial"
+        mock_job.scraper = "reddit"
+
+        with (
+            patch("web_scrapers.db.engine.get_session", return_value=mock_session),
+            patch(
+                "web_scrapers.db.repository.JobRepository.get_by_name",
+                return_value=mock_job,
+            ),
+            patch("web_scrapers.coordinator.run_tracked", return_value=(10, 5, 0)),
+        ):
+            result = runner.invoke(app, ["jobs", "run", "reddit-financial"])
+        assert result.exit_code == 0
+        assert "10 scraped" in result.output
+        assert "5 new" in result.output
+
+    def test_jobs_run_not_found(self) -> None:
+        mock_session = MagicMock()
+        with (
+            patch("web_scrapers.db.engine.get_session", return_value=mock_session),
+            patch(
+                "web_scrapers.db.repository.JobRepository.get_by_name",
+                return_value=None,
+            ),
+        ):
+            result = runner.invoke(app, ["jobs", "run", "nonexistent"])
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+
+class TestDaemon:
+    @patch("web_scrapers.scheduler.scheduler.run_daemon")
+    def test_daemon_invokes_scheduler(self, mock_daemon: MagicMock) -> None:
+        result = runner.invoke(app, ["daemon"])
+        assert result.exit_code == 0
+        mock_daemon.assert_called_once_with(ingest=False)
+
+    @patch("web_scrapers.scheduler.scheduler.run_daemon")
+    def test_daemon_with_ingest(self, mock_daemon: MagicMock) -> None:
+        result = runner.invoke(app, ["daemon", "--ingest"])
+        assert result.exit_code == 0
+        mock_daemon.assert_called_once_with(ingest=True)

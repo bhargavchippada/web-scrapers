@@ -129,14 +129,17 @@ def db_init() -> None:
     """Initialize database schema and run migrations."""
     _setup_logging()
     import subprocess
+    from pathlib import Path
 
     from web_scrapers.db.engine import ensure_schema
 
     ensure_schema()
+    project_root = Path(__file__).resolve().parent.parent
     result = subprocess.run(
         ["poetry", "run", "alembic", "upgrade", "head"],
         capture_output=True,
         text=True,
+        cwd=project_root,
     )
     if result.returncode == 0:
         typer.echo("Database initialized successfully")
