@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Tests for Pydantic data models."""
 
 from datetime import UTC, datetime
@@ -7,7 +7,7 @@ import pytest
 
 from web_scrapers.models.base import SignalEvent
 from web_scrapers.models.news import NewsArticle
-from web_scrapers.models.reddit import RedditPost, SentimentScore
+from web_scrapers.models.reddit import RedditComment, RedditPost, SentimentScore
 
 
 class TestSentimentScore:
@@ -58,6 +58,53 @@ class TestRedditPost:
         assert sample_reddit_post.scraped_at.tzinfo is not None
 
 
+class TestRedditComment:
+    def test_deleted_author_coerced(self) -> None:
+        comment = RedditComment(
+            id="c1",
+            post_id="p1",
+            subreddit="test",
+            body="Test comment",
+            author="[deleted]",
+            score=5,
+            created_utc=datetime.now(UTC),
+            parent_id="t3_p1",
+            is_top_level=True,
+            depth=0,
+            permalink="https://reddit.com/r/test/comments/p1/test/c1/",
+            sentiment=SentimentScore(positive=0.0, negative=0.0, neutral=1.0, compound=0.0),
+        )
+        assert comment.author is None
+
+    def test_valid_comment(self, sample_reddit_comment: RedditComment) -> None:
+        assert sample_reddit_comment.id == "cmt456"
+        assert sample_reddit_comment.post_id == "xyz789"
+        assert sample_reddit_comment.is_top_level is True
+        assert sample_reddit_comment.depth == 0
+
+    def test_nested_comment_flags(self) -> None:
+        comment = RedditComment(
+            id="c2",
+            post_id="p1",
+            subreddit="test",
+            body="Reply to comment",
+            author="user",
+            score=3,
+            created_utc=datetime.now(UTC),
+            parent_id="t1_c1",  # t1_ = parent is a comment
+            is_top_level=False,
+            depth=2,
+            permalink="https://reddit.com/r/test/comments/p1/test/c2/",
+            sentiment=SentimentScore(positive=0.5, negative=0.0, neutral=0.5, compound=0.5),
+        )
+        assert comment.is_top_level is False
+        assert comment.depth == 2
+
+    def test_scraped_at_auto_set(self, sample_reddit_comment: RedditComment) -> None:
+        assert sample_reddit_comment.scraped_at is not None
+        assert sample_reddit_comment.scraped_at.tzinfo is not None
+
+
 class TestNewsArticle:
     def test_minimal_article(self) -> None:
         a = NewsArticle(
@@ -98,9 +145,7 @@ class TestSignalEvent:
         assert event.ingested_at is not None
 
     def test_news_event(self) -> None:
-        article = NewsArticle(
-            id="n1", feed_name="Test", title="Test", link="https://example.com"
-        )
+        article = NewsArticle(id="n1", feed_name="Test", title="Test", link="https://example.com")
         event = SignalEvent(
             source="news",
             event_type="article",

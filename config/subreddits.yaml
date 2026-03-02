@@ -1,27 +1,34 @@
-# Version: v0.1.0
+# Version: v0.2.0
 # Target subreddits for financial intelligence scraping
+# comments_limit: number of top comments to fetch per post (0 = disabled)
 subreddits:
   - name: wallstreetbets
     sort: new
     limit: 25
     category: meme_stocks
+    comments_limit: 10
   - name: options
     sort: new
     limit: 25
     category: options_trading
+    comments_limit: 10
   - name: stocks
     sort: hot
     limit: 25
     category: general
+    comments_limit: 10
   - name: cryptocurrency
     sort: new
     limit: 25
     category: crypto
+    comments_limit: 10
   - name: investing
     sort: hot
     limit: 25
     category: general
+    comments_limit: 10
   - name: SecurityAnalysis
     sort: new
     limit: 15
     category: fundamentals
+    comments_limit: 5

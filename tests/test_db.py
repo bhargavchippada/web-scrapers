@@ -198,35 +198,45 @@ class TestEventRepository:
 
     def test_query_events_all(self, db_session: Session) -> None:
         repo = EventRepository(db_session)
-        repo.bulk_upsert([
-            _make_event(event_id="reddit:q1"),
-            _make_event(
-                source="news", event_type="article", event_id="news:q2",
-                payload={"feed_name": "Test"},
-            ),
-        ])
+        repo.bulk_upsert(
+            [
+                _make_event(event_id="reddit:q1"),
+                _make_event(
+                    source="news",
+                    event_type="article",
+                    event_id="news:q2",
+                    payload={"feed_name": "Test"},
+                ),
+            ]
+        )
         results = repo.query_events()
         assert len(results) == 2
 
     def test_query_events_by_source(self, db_session: Session) -> None:
         repo = EventRepository(db_session)
-        repo.bulk_upsert([
-            _make_event(event_id="reddit:s1"),
-            _make_event(
-                source="news", event_type="article", event_id="news:s2",
-                payload={"feed_name": "Test"},
-            ),
-        ])
+        repo.bulk_upsert(
+            [
+                _make_event(event_id="reddit:s1"),
+                _make_event(
+                    source="news",
+                    event_type="article",
+                    event_id="news:s2",
+                    payload={"feed_name": "Test"},
+                ),
+            ]
+        )
         results = repo.query_events(source="reddit")
         assert len(results) == 1
         assert results[0].source == "reddit"
 
     def test_query_events_by_subreddit(self, db_session: Session) -> None:
         repo = EventRepository(db_session)
-        repo.bulk_upsert([
-            _make_event(event_id="reddit:sr1", payload={"subreddit": "options"}),
-            _make_event(event_id="reddit:sr2", payload={"subreddit": "wallstreetbets"}),
-        ])
+        repo.bulk_upsert(
+            [
+                _make_event(event_id="reddit:sr1", payload={"subreddit": "options"}),
+                _make_event(event_id="reddit:sr2", payload={"subreddit": "wallstreetbets"}),
+            ]
+        )
         results = repo.query_events(subreddit="options")
         assert len(results) == 1
         assert results[0].payload["subreddit"] == "options"
@@ -245,11 +255,13 @@ class TestEventRepository:
 
     def test_count_events(self, db_session: Session) -> None:
         repo = EventRepository(db_session)
-        repo.bulk_upsert([
-            _make_event(event_id="reddit:c1"),
-            _make_event(event_id="reddit:c2"),
-            _make_event(source="news", event_type="article", event_id="news:c3", payload={}),
-        ])
+        repo.bulk_upsert(
+            [
+                _make_event(event_id="reddit:c1"),
+                _make_event(event_id="reddit:c2"),
+                _make_event(source="news", event_type="article", event_id="news:c3", payload={}),
+            ]
+        )
         assert repo.count_events() == 3
         assert repo.count_events(source="reddit") == 2
         assert repo.count_events(source="news") == 1
@@ -481,9 +493,7 @@ class TestCLIJobsCommands:
         mock_session = MagicMock()
         with (
             patch("web_scrapers.db.engine.get_session", return_value=mock_session),
-            patch(
-                "web_scrapers.db.repository.JobRepository.set_enabled", return_value=True
-            ),
+            patch("web_scrapers.db.repository.JobRepository.set_enabled", return_value=True),
         ):
             result = runner.invoke(app, ["jobs", "enable", "test-job"])
             assert result.exit_code == 0
@@ -498,9 +508,7 @@ class TestCLIJobsCommands:
         mock_session = MagicMock()
         with (
             patch("web_scrapers.db.engine.get_session", return_value=mock_session),
-            patch(
-                "web_scrapers.db.repository.JobRepository.set_enabled", return_value=True
-            ),
+            patch("web_scrapers.db.repository.JobRepository.set_enabled", return_value=True),
         ):
             result = runner.invoke(app, ["jobs", "disable", "test-job"])
             assert result.exit_code == 0
@@ -515,9 +523,7 @@ class TestCLIJobsCommands:
         mock_session = MagicMock()
         with (
             patch("web_scrapers.db.engine.get_session", return_value=mock_session),
-            patch(
-                "web_scrapers.db.repository.RunRepository.get_recent_runs", return_value=[]
-            ),
+            patch("web_scrapers.db.repository.RunRepository.get_recent_runs", return_value=[]),
         ):
             result = runner.invoke(app, ["jobs", "history"])
             assert result.exit_code == 0

@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Reddit scraper — fetches posts from configured subreddits with sentiment analysis."""
 
 from __future__ import annotations
@@ -7,12 +7,12 @@ from datetime import UTC, datetime
 
 import praw
 from loguru import logger
-from praw.models import Submission
+from praw.models import Comment, MoreComments, Submission
 
 from web_scrapers.analysis.sentiment import score_sentiment
 from web_scrapers.config import get_subreddit_targets, settings
 from web_scrapers.models.base import SignalEvent
-from web_scrapers.models.reddit import RedditPost
+from web_scrapers.models.reddit import RedditComment, RedditPost
 from web_scrapers.scrapers.base import BaseScraper
 
 _ALLOWED_SORTS = frozenset({"new", "hot", "top", "rising", "controversial"})
@@ -44,6 +44,28 @@ def _parse_submission(submission: Submission, subreddit_name: str) -> RedditPost
     )
 
 
+def _parse_comment(
+    comment: Comment, post_id: str, subreddit_name: str, depth: int = 0
+) -> RedditComment:
+    """Parse a PRAW comment into a RedditComment model."""
+    parent_id = comment.parent_id
+    is_top_level = parent_id.startswith("t3_")
+    return RedditComment(
+        id=comment.id,
+        post_id=post_id,
+        subreddit=subreddit_name,
+        body=comment.body or "",
+        author=getattr(comment.author, "name", None) if comment.author else None,
+        score=comment.score,
+        created_utc=datetime.fromtimestamp(comment.created_utc, tz=UTC),
+        parent_id=parent_id,
+        is_top_level=is_top_level,
+        depth=depth,
+        permalink=f"https://reddit.com{comment.permalink}",
+        sentiment=score_sentiment(comment.body or ""),
+    )
+
+
 class RedditScraper(BaseScraper):
     """Scrapes Reddit posts from configured subreddits."""
 
@@ -72,10 +94,17 @@ class RedditScraper(BaseScraper):
             sub_name = target["name"]
             sort = target.get("sort", "new")
             limit = target.get("limit", 25)
+            comments_limit = target.get("comments_limit", 0)
 
-            logger.info("Scraping r/{} (sort={}, limit={})", sub_name, sort, limit)
+            logger.info(
+                "Scraping r/{} (sort={}, limit={}, comments_limit={})",
+                sub_name,
+                sort,
+                limit,
+                comments_limit,
+            )
             try:
-                events.extend(self._scrape_subreddit(client, sub_name, sort, limit))
+                events.extend(self._scrape_subreddit(client, sub_name, sort, limit, comments_limit))
             except Exception:
                 logger.exception("Failed to scrape r/{}", sub_name)
 
@@ -88,6 +117,7 @@ class RedditScraper(BaseScraper):
         subreddit_name: str,
         sort: str,
         limit: int,
+        comments_limit: int = 0,
     ) -> list[SignalEvent]:
         if sort not in _ALLOWED_SORTS:
             raise ValueError(f"Invalid sort method '{sort}'. Allowed: {sorted(_ALLOWED_SORTS)}")
@@ -111,8 +141,55 @@ class RedditScraper(BaseScraper):
                     post.sentiment.compound,
                 )
                 events.append(event)
+
+                if comments_limit > 0:
+                    comment_events = self._scrape_post_comments(
+                        submission, subreddit_name, comments_limit
+                    )
+                    events.extend(comment_events)
             except Exception:
                 logger.exception("Failed to parse submission {}", submission.id)
+
+        return events
+
+    def _scrape_post_comments(
+        self,
+        submission: Submission,
+        subreddit_name: str,
+        limit: int,
+    ) -> list[SignalEvent]:
+        """Fetch top N comments from a post, sorted by score."""
+        if limit <= 0:
+            return []
+
+        events: list[SignalEvent] = []
+        submission.comment_sort = "best"
+        submission.comments.replace_more(limit=0)
+
+        count = 0
+        for comment in submission.comments:
+            if isinstance(comment, MoreComments):
+                continue
+            if count >= limit:
+                break
+            try:
+                parsed = _parse_comment(comment, submission.id, subreddit_name, depth=0)
+                event = SignalEvent(
+                    source="reddit",
+                    event_type="comment",
+                    payload=parsed.model_dump(mode="json"),
+                    event_id=f"reddit:comment:{parsed.id}",
+                )
+                events.append(event)
+                count += 1
+                logger.debug(
+                    "reddit | r/{} | comment:{} | compound={:.3f}",
+                    subreddit_name,
+                    parsed.id,
+                    parsed.sentiment.compound,
+                )
+            except Exception:
+                logger.exception("Failed to parse comment {}", comment.id)
 
         return events
 

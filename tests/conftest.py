@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Shared test fixtures for web-scrapers."""
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from web_scrapers.models.reddit import RedditPost, SentimentScore
+from web_scrapers.models.reddit import RedditComment, RedditPost, SentimentScore
 
 
 @pytest.fixture
@@ -53,6 +53,40 @@ def mock_reddit_submission() -> MagicMock:
     sub.subreddit = MagicMock()
     sub.subreddit.display_name = "options"
     return sub
+
+
+@pytest.fixture
+def mock_reddit_comment() -> MagicMock:
+    """Create a mock praw Comment object."""
+    comment = MagicMock()
+    comment.id = "cmt123"
+    comment.body = "This is bullish AF!"
+    author = MagicMock()
+    author.name = "comment_user"
+    comment.author = author
+    comment.score = 50
+    comment.created_utc = 1737001000.0
+    comment.parent_id = "t3_xyz789"  # t3_ prefix indicates parent is a post
+    comment.permalink = "/r/options/comments/xyz789/spy_puts_printing/cmt123/"
+    return comment
+
+
+@pytest.fixture
+def sample_reddit_comment(sample_sentiment: SentimentScore) -> RedditComment:
+    return RedditComment(
+        id="cmt456",
+        post_id="xyz789",
+        subreddit="options",
+        body="Great DD, I'm in!",
+        author="commenter",
+        score=25,
+        created_utc=datetime(2026, 1, 15, 12, 30, 0, tzinfo=UTC),
+        parent_id="t3_xyz789",
+        is_top_level=True,
+        depth=0,
+        permalink="https://reddit.com/r/options/comments/xyz789/test/cmt456/",
+        sentiment=sample_sentiment,
+    )
 
 
 @pytest.fixture

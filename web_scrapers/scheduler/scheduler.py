@@ -15,15 +15,11 @@ from web_scrapers.db.engine import get_session
 from web_scrapers.db.repository import JobRepository
 
 
-def _execute_job(
-    job_id: int, job_name: str, scraper: str, ingest: bool = False
-) -> None:
+def _execute_job(job_id: int, job_name: str, scraper: str, ingest: bool = False) -> None:
     """Callback for APScheduler — runs a single tracked scrape."""
     logger.info("Scheduler executing job: {} (scraper={})", job_name, scraper)
     try:
-        total, new, ingested = run_tracked(
-            scraper, job_id=job_id, job_name=job_name, ingest=ingest
-        )
+        total, new, ingested = run_tracked(scraper, job_id=job_id, job_name=job_name, ingest=ingest)
         logger.info(
             "Job {} complete: {} total, {} new, {} ingested",
             job_name,

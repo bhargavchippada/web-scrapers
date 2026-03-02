@@ -44,7 +44,9 @@ def persist_events(events: list[SignalEvent], run_id: int | None = None) -> int:
         new_count = len(new_ids)
         logger.info(
             "Persisted {} events ({} new, {} refreshed)",
-            len(events), new_count, len(events) - new_count,
+            len(events),
+            new_count,
+            len(events) - new_count,
         )
         return new_count
     finally:

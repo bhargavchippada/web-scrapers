@@ -85,9 +85,7 @@ class ScrapeRunRow(Base):
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     events_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     events_new: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     events_ingested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

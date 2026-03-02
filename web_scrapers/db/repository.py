@@ -111,9 +111,7 @@ class EventRepository:
         """Return the subset of event_ids that do NOT exist in the database."""
         if not event_ids:
             return set()
-        stmt = select(SignalEventRow.event_id).where(
-            SignalEventRow.event_id.in_(event_ids)
-        )
+        stmt = select(SignalEventRow.event_id).where(SignalEventRow.event_id.in_(event_ids))
         existing = set(self._session.scalars(stmt).all())
         return set(event_ids) - existing
 

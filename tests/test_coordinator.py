@@ -34,9 +34,7 @@ class TestCoordinator:
     def test_run_scraper_returns_events(self) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "test"
-        mock_event = SignalEvent(
-            source="test", event_type="test", payload={}, event_id="t:1"
-        )
+        mock_event = SignalEvent(source="test", event_type="test", payload={}, event_id="t:1")
         mock_scraper.scrape.return_value = [mock_event]
         events = run_scraper(mock_scraper)
         assert len(events) == 1
@@ -46,9 +44,7 @@ class TestCoordinator:
     def test_run_all(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "mock"
-        mock_event = SignalEvent(
-            source="mock", event_type="test", payload={}, event_id="m:1"
-        )
+        mock_event = SignalEvent(source="mock", event_type="test", payload={}, event_id="m:1")
         mock_scraper.scrape.return_value = [mock_event]
         mock_get.return_value = [mock_scraper]
 
@@ -61,9 +57,7 @@ class TestCoordinator:
     def test_run_all_no_persist(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "mock"
-        mock_event = SignalEvent(
-            source="mock", event_type="test", payload={}, event_id="m:1"
-        )
+        mock_event = SignalEvent(source="mock", event_type="test", payload={}, event_id="m:1")
         mock_scraper.scrape.return_value = [mock_event]
         mock_get.return_value = [mock_scraper]
 
@@ -86,9 +80,7 @@ class TestCoordinator:
     def test_run_single_known(self, mock_get: MagicMock, mock_persist: MagicMock) -> None:
         mock_scraper = MagicMock()
         mock_scraper.name = "reddit"
-        mock_event = SignalEvent(
-            source="reddit", event_type="post", payload={}, event_id="r:1"
-        )
+        mock_event = SignalEvent(source="reddit", event_type="post", payload={}, event_id="r:1")
         mock_scraper.scrape.return_value = [mock_event]
         mock_get.return_value = [mock_scraper]
 
@@ -109,9 +101,7 @@ class TestRunTracked:
         mock_run_cls: MagicMock,
         mock_run: MagicMock,
     ) -> None:
-        mock_event = SignalEvent(
-            source="reddit", event_type="post", payload={}, event_id="r:1"
-        )
+        mock_event = SignalEvent(source="reddit", event_type="post", payload={}, event_id="r:1")
         mock_run.return_value = [mock_event]
         mock_get_session.return_value = MagicMock()
 
@@ -168,9 +158,7 @@ class TestRunTracked:
         mock_run: MagicMock,
     ) -> None:
         """When all events are duplicates, new_count=0 and no ingestion."""
-        mock_event = SignalEvent(
-            source="reddit", event_type="post", payload={}, event_id="r:dup"
-        )
+        mock_event = SignalEvent(source="reddit", event_type="post", payload={}, event_id="r:dup")
         mock_run.return_value = [mock_event]
         mock_get_session.return_value = MagicMock()
 

@@ -84,9 +84,7 @@ class NewsScraper(BaseScraper):
         logger.info("News scraper finished: {} events collected", len(events))
         return events
 
-    def _scrape_feed(
-        self, feed_name: str, url: str, category: str
-    ) -> list[SignalEvent]:
+    def _scrape_feed(self, feed_name: str, url: str, category: str) -> list[SignalEvent]:
         with httpx.Client(
             headers={"User-Agent": _USER_AGENT},
             timeout=_TIMEOUT,

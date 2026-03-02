@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Tests for the Reddit scraper (mocked — no API calls)."""
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import pytest
 from web_scrapers.scrapers.reddit import (
     _ALLOWED_SORTS,
     RedditScraper,
+    _parse_comment,
     _parse_submission,
 )
 
@@ -193,3 +194,126 @@ class TestRedditScraperEdgeCases:
         mock_client.subreddit.side_effect = Exception("Auth failed")
         scraper = RedditScraper(client=mock_client)
         assert scraper.health_check() is False
+
+
+class TestParseComment:
+    def test_parses_comment(self, mock_reddit_comment: MagicMock) -> None:
+        comment = _parse_comment(mock_reddit_comment, "xyz789", "options", depth=0)
+        assert comment.id == "cmt123"
+        assert comment.post_id == "xyz789"
+        assert comment.subreddit == "options"
+        assert comment.body == "This is bullish AF!"
+        assert comment.author == "comment_user"
+        assert comment.score == 50
+        assert comment.is_top_level is True
+        assert comment.depth == 0
+        assert comment.sentiment is not None
+
+    def test_deleted_author(self, mock_reddit_comment: MagicMock) -> None:
+        mock_reddit_comment.author = None
+        comment = _parse_comment(mock_reddit_comment, "xyz789", "options")
+        assert comment.author is None
+
+    def test_nested_comment(self, mock_reddit_comment: MagicMock) -> None:
+        mock_reddit_comment.parent_id = "t1_parent123"  # t1_ = parent is a comment
+        comment = _parse_comment(mock_reddit_comment, "xyz789", "options", depth=2)
+        assert comment.is_top_level is False
+        assert comment.depth == 2
+
+
+class TestCommentScraping:
+    @patch("web_scrapers.scrapers.reddit.get_subreddit_targets")
+    def test_scrape_with_comments(
+        self,
+        mock_targets: MagicMock,
+        mock_reddit_submission: MagicMock,
+        mock_reddit_comment: MagicMock,
+    ) -> None:
+        """Test that comments are scraped when comments_limit > 0."""
+        mock_targets.return_value = [
+            {"name": "options", "sort": "new", "limit": 5, "comments_limit": 3},
+        ]
+        mock_comments = MagicMock()
+        mock_comments.__iter__ = lambda self: iter([mock_reddit_comment])
+        mock_comments.replace_more = MagicMock()
+        mock_reddit_submission.comments = mock_comments
+
+        mock_client = MagicMock()
+        mock_subreddit = MagicMock()
+        mock_subreddit.new.return_value = [mock_reddit_submission]
+        mock_client.subreddit.return_value = mock_subreddit
+
+        scraper = RedditScraper(client=mock_client)
+        events = scraper.scrape()
+
+        # Should have 1 post + 1 comment
+        assert len(events) == 2
+        post_events = [e for e in events if e.event_type == "post"]
+        comment_events = [e for e in events if e.event_type == "comment"]
+        assert len(post_events) == 1
+        assert len(comment_events) == 1
+        assert comment_events[0].event_id == "reddit:comment:cmt123"
+
+    @patch("web_scrapers.scrapers.reddit.get_subreddit_targets")
+    def test_scrape_no_comments_when_limit_zero(
+        self,
+        mock_targets: MagicMock,
+        mock_reddit_submission: MagicMock,
+    ) -> None:
+        """Test that no comments are scraped when comments_limit is 0."""
+        mock_targets.return_value = [
+            {"name": "options", "sort": "new", "limit": 5, "comments_limit": 0},
+        ]
+        mock_client = MagicMock()
+        mock_subreddit = MagicMock()
+        mock_subreddit.new.return_value = [mock_reddit_submission]
+        mock_client.subreddit.return_value = mock_subreddit
+
+        scraper = RedditScraper(client=mock_client)
+        events = scraper.scrape()
+
+        # Should have only 1 post, no comments
+        assert len(events) == 1
+        assert events[0].event_type == "post"
+
+    @patch("web_scrapers.scrapers.reddit.get_subreddit_targets")
+    def test_scrape_respects_comment_limit(
+        self,
+        mock_targets: MagicMock,
+        mock_reddit_submission: MagicMock,
+    ) -> None:
+        """Test that only N comments are scraped per post."""
+        mock_targets.return_value = [
+            {"name": "options", "sort": "new", "limit": 1, "comments_limit": 2},
+        ]
+        # Create 5 mock comments
+        comments = []
+        for i in range(5):
+            c = MagicMock()
+            c.id = f"cmt{i}"
+            c.body = f"Comment {i}"
+            author = MagicMock()
+            author.name = f"user{i}"
+            c.author = author
+            c.score = 10 + i
+            c.created_utc = 1737000000.0 + i
+            c.parent_id = "t3_xyz789"
+            c.permalink = f"/r/options/comments/xyz789/post/cmt{i}/"
+            comments.append(c)
+
+        mock_comments = MagicMock()
+        mock_comments.__iter__ = lambda self: iter(comments)
+        mock_comments.replace_more = MagicMock()
+        mock_reddit_submission.comments = mock_comments
+
+        mock_client = MagicMock()
+        mock_subreddit = MagicMock()
+        mock_subreddit.new.return_value = [mock_reddit_submission]
+        mock_client.subreddit.return_value = mock_subreddit
+
+        scraper = RedditScraper(client=mock_client)
+        events = scraper.scrape()
+
+        # Should have 1 post + 2 comments (limited to 2)
+        comment_events = [e for e in events if e.event_type == "comment"]
+        assert len(comment_events) == 2

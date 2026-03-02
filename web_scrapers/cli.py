@@ -249,8 +249,7 @@ def db_query(
             for r in rows:
                 title = r.payload.get("title", r.payload.get("feed_name", ""))
                 typer.echo(
-                    f"  [{r.source}] {r.scraped_at:%Y-%m-%d %H:%M} | "
-                    f"{r.event_id} | {title[:60]}"
+                    f"  [{r.source}] {r.scraped_at:%Y-%m-%d %H:%M} | {r.event_id} | {title[:60]}"
                 )
     finally:
         session.close()
@@ -312,9 +311,7 @@ def jobs_run(
 
     from web_scrapers.coordinator import run_tracked
 
-    total, new, ingested = run_tracked(
-        job.scraper, job_id=job.id, job_name=job.name, ingest=ingest
-    )
+    total, new, ingested = run_tracked(job.scraper, job_id=job.id, job_name=job.name, ingest=ingest)
     typer.echo(f"Job '{name}' complete: {total} scraped, {new} new, {ingested} ingested")
 
 
