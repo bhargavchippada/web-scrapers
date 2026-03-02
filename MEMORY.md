@@ -2,6 +2,8 @@
 
 <!-- Logical state: known bugs, key findings, changelog -->
 
+**Version:** v0.2
+
 ## Known Issues
 
 - [ ] Some RSS feeds (Bloomberg, Investing.com) may block automated requests

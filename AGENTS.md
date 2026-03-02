@@ -2,6 +2,8 @@
 
 <!-- Commands for AI agents: testing, building, running -->
 
+**Version:** v1.0
+
 ## Setup
 
 ```bash

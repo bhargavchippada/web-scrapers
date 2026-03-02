@@ -2,6 +2,8 @@
 
 <!-- Pending tasks: [ ] incomplete, [x] completed -->
 
+**Version:** v1.0
+
 ## Phase 2 — Current
 
 - [x] Reddit scraper with sentiment analysis
