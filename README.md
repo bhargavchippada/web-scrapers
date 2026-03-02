@@ -1,6 +1,10 @@
 # Web Scrapers
 
-> Version: v0.2.0 | Agent: Ari | Project: Nexus
+<!-- Executive summary: tech stack, mission, architecture -->
+
+**Version:** v0.2.0
+
+> See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
 Modular web scraping toolkit for financial intelligence gathering. Collects data from Reddit, news RSS feeds, and (future) YouTube transcripts and Twitter/X — feeding it into a deduplicated PostgreSQL database and Nexus RAG for semantic search and graph analysis by AI agents.
 
