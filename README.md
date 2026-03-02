@@ -2,7 +2,7 @@
 
 <!-- Executive summary: tech stack, mission, architecture -->
 
-**Version:** v0.2.0
+**Version:** v0.4.0
 
 > See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
@@ -69,6 +69,82 @@ poetry run python -m web_scrapers.cli run-all --ingest
 poetry run python -m web_scrapers.cli health
 ```
 
+## Library Usage (from Other Projects)
+
+This package can be installed as an editable dependency in other Antigravity projects:
+
+### Installation
+
+```bash
+# Install as editable package
+pip install -e /path/to/projects/web-scrapers
+
+# Or add to pyproject.toml
+[tool.poetry.dependencies]
+web-scrapers = {path = "../web-scrapers", develop = true}
+```
+
+### Public API
+
+```python
+from web_scrapers import (
+    # Data models
+    SignalEvent,        # Universal event envelope
+    RedditPost,         # Reddit post with sentiment
+    RedditComment,      # Reddit comment with sentiment
+    NewsArticle,        # RSS/Atom news article
+    SentimentScore,     # VADER sentiment scores
+
+    # Scrapers
+    BaseScraper,        # ABC for custom scrapers
+    RedditScraper,      # Reddit API scraper
+    NewsScraper,        # RSS/Atom scraper
+
+    # Analysis
+    score_sentiment,    # VADER sentiment analysis
+
+    # Query helpers (requires DATABASE_URL)
+    get_latest_events,      # Get recent events
+    get_events_since,       # Get events from last N hours
+    get_stats,              # Database statistics
+    get_subreddit_summary,  # Aggregated subreddit stats
+
+    # Coordinator (for programmatic scraping)
+    run_all,            # Run all scrapers
+    run_single,         # Run single scraper by name
+    run_tracked,        # Run with tracking + optional RAG ingest
+    persist_events,     # Persist events to DB
+
+    # Configuration
+    Settings,           # Pydantic settings model
+    get_settings,       # Factory with overrides
+    settings,           # Default singleton
+)
+```
+
+### Examples
+
+```python
+# Analyze sentiment without database
+from web_scrapers import score_sentiment
+score = score_sentiment("Bitcoin is mooning! 🚀")
+print(f"Compound: {score.compound}")  # 0.7506
+
+# Create custom scraper instance
+from web_scrapers import RedditScraper
+scraper = RedditScraper()
+events = scraper.scrape()
+
+# Query stored events (requires DATABASE_URL in env)
+from web_scrapers import get_latest_events, get_subreddit_summary
+events = get_latest_events(source="reddit", limit=10)
+summary = get_subreddit_summary("wallstreetbets", hours=24)
+
+# Custom settings for another project
+from web_scrapers import get_settings
+custom = get_settings(database_url="postgresql://user:pass@host/db")
+```
+
 ## Database
 
 ### Setup
@@ -93,7 +169,7 @@ poetry run python -m web_scrapers.cli db seed-jobs
 
 ### Deduplication
 
-Events are identified by `event_id` (e.g., `reddit:abc123`, `news:fa3b...`). Inserts use `ON CONFLICT (event_id) DO NOTHING` for zero-cost idempotent upserts. Running the same scraper twice produces 0 new events.
+Events are identified by `event_id` (e.g., `reddit:abc123`, `reddit:comment:xyz789`, `news:fa3b...`). Inserts use `ON CONFLICT (event_id) DO NOTHING` for zero-cost idempotent upserts. Running the same scraper twice produces 0 new events.
 
 ### Querying
 
@@ -150,7 +226,14 @@ poetry run python -m web_scrapers.cli daemon --ingest
 
 ### Reddit Scraper
 
-Fetches posts from financial subreddits using the official Reddit API (`praw`). Includes VADER sentiment analysis on post title + body.
+Fetches posts and comments from financial subreddits using the official Reddit API (`praw`). Includes VADER sentiment analysis on post title + body and comment text.
+
+**Features:**
+
+- Configurable N comments per post via `comments_limit` in config
+- Comments sorted by "best" score
+- Sentiment analysis on both posts and comments
+- Posts stored with `event_id="reddit:{post_id}"`, comments with `event_id="reddit:comment:{comment_id}"`
 
 **Configured subreddits:** `config/subreddits.yaml`
 
@@ -175,12 +258,17 @@ All scraped data is wrapped in a `SignalEvent` envelope:
 ```python
 SignalEvent(
     source="reddit",           # Scraper source
-    event_type="post",         # Event type
-    payload={...},             # RedditPost or NewsArticle (dict)
+    event_type="post",         # "post" or "comment"
+    payload={...},             # RedditPost, RedditComment, or NewsArticle (dict)
     event_id="reddit:abc123",  # Unique ID for dedup
     ingested_at=datetime,      # UTC timestamp
 )
 ```
+
+### Reddit Models
+
+- **RedditPost** — Post with title, selftext, score, upvote_ratio, num_comments, sentiment
+- **RedditComment** — Comment with body, score, parent_id, is_top_level, depth, sentiment
 
 ## Configuration
 
@@ -198,7 +286,7 @@ SignalEvent(
 
 ### YAML Configs
 
-- `config/subreddits.yaml` — Target subreddits with sort order, limit, category
+- `config/subreddits.yaml` — Target subreddits with sort order, limit, category, comments_limit
 - `config/feeds.yaml` — RSS feed URLs with name and category
 - `config/jobs.yaml` — Scheduled job definitions (name, scraper, cron, enabled)
 

@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.4.0
 """Application settings loaded from environment variables and YAML configs."""
 
 from __future__ import annotations
@@ -14,7 +14,12 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 
 
 class Settings(BaseSettings):
-    """Environment-based settings."""
+    """Environment-based settings.
+
+    For external projects, create custom settings with overrides:
+        from web_scrapers.config import get_settings
+        settings = get_settings(database_url="postgresql://...")
+    """
 
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
@@ -31,7 +36,22 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
+# Default singleton for internal use
 settings = Settings()
+
+
+def get_settings(**overrides: Any) -> Settings:
+    """Get settings with optional overrides.
+
+    External projects can use this to customize settings:
+        settings = get_settings(
+            database_url="postgresql://user:pass@host/db",
+            reddit_client_id="your_client_id",
+        )
+    """
+    if not overrides:
+        return settings
+    return Settings(**overrides)
 
 
 def load_yaml_config(filename: str) -> dict[str, Any]:

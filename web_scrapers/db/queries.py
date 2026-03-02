@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.4.0
 """High-level query helpers for common event queries."""
 
 from __future__ import annotations
@@ -92,9 +92,7 @@ def get_subreddit_summary(subreddit: str, hours: int = 24) -> dict[str, Any]:
         if not rows:
             return {"subreddit": subreddit, "count": 0, "avg_sentiment": None}
 
-        sentiments = [
-            r.payload.get("sentiment", {}).get("compound", 0.0) for r in rows
-        ]
+        sentiments = [r.payload.get("sentiment", {}).get("compound", 0.0) for r in rows]
         return {
             "subreddit": subreddit,
             "count": len(rows),

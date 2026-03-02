@@ -1,7 +1,7 @@
-# Version: v0.2.0
+# Version: v0.4.0
 [project]
 name = "web-scrapers"
-version = "0.2.0"
+version = "0.4.0"
 description = "Modular web scraping toolkit for financial intelligence gathering"
 authors = [
     {name = "Turiya"}
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [tool.poetry]
-package-mode = false
+packages = [{include = "web_scrapers"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -44,6 +44,9 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "integration: requires running PostgreSQL database",
+]
+filterwarnings = [
+    "ignore:coroutine 'run_all_with_ingest' was never awaited:RuntimeWarning",
 ]
 
 [tool.ruff]
