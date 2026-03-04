@@ -1,4 +1,4 @@
-# Version: v0.4.0
+# Version: v0.4.1
 """Application settings loaded from environment variables and YAML configs."""
 
 from __future__ import annotations
@@ -33,7 +33,11 @@ class Settings(BaseSettings):
 
     scraper_log_level: str = "INFO"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",  # Allow extra env vars from parent projects
+    }
 
 
 # Default singleton for internal use

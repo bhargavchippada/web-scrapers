@@ -196,7 +196,7 @@ class TestPublicAPIImports:
             score_sentiment,
         )
 
-        assert __version__ == "0.4.0"
+        assert __version__ == "0.5.0"
         assert Settings is not None
         assert get_settings is not None
         assert score_sentiment is not None

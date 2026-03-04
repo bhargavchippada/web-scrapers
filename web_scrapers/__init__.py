@@ -1,4 +1,4 @@
-# Version: v0.4.0
+# Version: v0.5.0
 """Web Scrapers — Modular financial intelligence gathering toolkit.
 
 This package provides tools for scraping financial data from Reddit, news RSS feeds,
@@ -20,6 +20,9 @@ Library Usage (from other projects):
         # Analysis
         score_sentiment,
 
+        # Symbol utilities (for filtering by stock ticker)
+        get_company_names, is_relevant_to_symbol, get_all_symbols,
+
         # Query helpers (requires DB connection)
         get_latest_events, get_events_since, get_stats,
 
@@ -34,11 +37,14 @@ Library Usage (from other projects):
     # Analyze sentiment
     score = score_sentiment("Bitcoin is mooning!")
 
+    # Check symbol relevance
+    is_relevant_to_symbol("Apple announces new iPhone", "AAPL")  # True
+
     # Query stored events (requires DATABASE_URL)
     events = get_latest_events(source="reddit", limit=10)
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # Core models
 # Analysis utilities
@@ -73,6 +79,13 @@ from web_scrapers.models import (
 # Scrapers
 from web_scrapers.scrapers import BaseScraper, NewsScraper, RedditScraper
 
+# Symbol utilities (for filtering by stock ticker)
+from web_scrapers.utils.symbol_mapping import (
+    get_all_symbols,
+    get_company_names,
+    is_relevant_to_symbol,
+)
+
 __all__ = [
     # Version
     "__version__",
@@ -102,4 +115,8 @@ __all__ = [
     "Settings",
     "get_settings",
     "settings",
+    # Symbol utilities
+    "get_company_names",
+    "is_relevant_to_symbol",
+    "get_all_symbols",
 ]

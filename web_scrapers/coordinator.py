@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.3.0
 """Coordinator — orchestrates scrapers, persistence, and optional RAG ingestion."""
 
 from __future__ import annotations
@@ -134,11 +134,46 @@ def run_tracked(
 
 
 async def run_all_with_ingest() -> tuple[int, int]:
-    """Run all scrapers and ingest results into Nexus RAG. Returns (total, ingested)."""
-    from web_scrapers.bridge.nexus import ingest_events
+    """Run all scrapers and ingest only NEW events into Nexus RAG.
 
-    events = run_all(persist=True)
-    if not events:
+    Returns (total_events, ingested_count).
+    Only events that don't already exist in the database are ingested to RAG,
+    matching the behavior of run_tracked().
+    """
+    from web_scrapers.bridge.nexus import ingest_events
+    from web_scrapers.db.engine import get_session
+    from web_scrapers.db.repository import EventRepository
+
+    all_events: list[SignalEvent] = []
+    for scraper in get_all_scrapers():
+        all_events.extend(run_scraper(scraper))
+
+    if not all_events:
         return 0, 0
-    ingested = await ingest_events(events)
-    return len(events), ingested
+
+    # Detect new events BEFORE persisting (same pattern as run_tracked)
+    session = get_session()
+    try:
+        repo = EventRepository(session)
+        all_ids = [e.event_id for e in all_events]
+        new_ids = repo.get_new_event_ids(all_ids)
+
+        # Persist all events
+        repo.bulk_upsert(all_events)
+        logger.info(
+            "Persisted {} events ({} new, {} refreshed)",
+            len(all_events),
+            len(new_ids),
+            len(all_events) - len(new_ids),
+        )
+    finally:
+        session.close()
+
+    # Only ingest new events to RAG (avoid duplicates)
+    if not new_ids:
+        logger.info("No new events to ingest into RAG")
+        return len(all_events), 0
+
+    new_events = [e for e in all_events if e.event_id in new_ids]
+    ingested = await ingest_events(new_events)
+    return len(all_events), ingested
