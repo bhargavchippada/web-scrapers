@@ -1,10 +1,12 @@
-# Version: v0.1.0
+# Version: v0.2.0
 """Tests for the News/RSS scraper (mocked HTTP — no network calls)."""
 
 from __future__ import annotations
 
 from time import struct_time
 from unittest.mock import MagicMock, patch
+
+import httpx
 
 from web_scrapers.scrapers.news import (
     NewsScraper,
@@ -102,7 +104,7 @@ class TestNewsScraper:
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
         mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.get.side_effect = Exception("Connection refused")
+        mock_client.get.side_effect = httpx.ConnectError("Connection refused")
         mock_client_cls.return_value = mock_client
 
         scraper = NewsScraper()
@@ -209,5 +211,22 @@ class TestNewsScraperEdgeCases:
     @patch("web_scrapers.scrapers.news.get_feed_targets")
     def test_health_check_no_targets(self, mock_targets: MagicMock) -> None:
         mock_targets.return_value = []
+        scraper = NewsScraper()
+        assert scraper.health_check() is False
+
+    @patch("web_scrapers.scrapers.news.httpx.Client")
+    @patch("web_scrapers.scrapers.news.get_feed_targets")
+    def test_health_check_handles_request_error(
+        self,
+        mock_targets: MagicMock,
+        mock_client_cls: MagicMock,
+    ) -> None:
+        mock_targets.return_value = [{"name": "Feed", "url": "https://example.com/rss"}]
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get.side_effect = httpx.ConnectError("DNS fail")
+        mock_client_cls.return_value = mock_client
+
         scraper = NewsScraper()
         assert scraper.health_check() is False

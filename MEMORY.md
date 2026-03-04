@@ -2,7 +2,7 @@
 
 <!-- Logical state: known bugs, key findings, changelog -->
 
-**Version:** v0.6
+**Version:** v0.9
 
 ## Known Issues
 
@@ -49,7 +49,45 @@
 
 ## Changelog
 
-### v0.5.1 — Bug Fix: RAG Ingestion (Current)
+### v0.6.1 — Bridge Identifier + Network Error Robustness (Current)
+
+- **Bug Fix:** `bridge/nexus.py` now passes `source_identifier=event.event_id` (instead of `f"{event.source}:{event.event_id}"`)
+  - Root cause: `event_id` already includes source prefix (`reddit:...`, `news:...`), so previous code duplicated prefixes
+  - Impact: Prevents identifier drift and duplicate identity keys in Nexus ingest pipeline
+  - Prevention: Treat `SignalEvent.event_id` as canonical external identifier; never re-prefix in adapters
+- **Bug Fix:** Bridge now handles `ImportError` for `nexus.tools.ingest_document` and returns 0 instead of crashing
+  - Root cause: Import performed inside runtime path without guard
+  - Prevention: Wrap dynamic imports with explicit error handling for optional/dependency-linked modules
+- **Robustness:** `NewsScraper` now logs `httpx.RequestError` as warnings in `scrape()` and `health_check()`
+  - Root cause: Expected network/DNS failures were logged with full stack traces, creating noisy operational logs
+  - Prevention: Reserve stack traces for unexpected exceptions; use concise warning logs for expected network failures
+- **Tests:** Added regression tests for bridge ingest behavior and news health request error path (211 passing tests total)
+
+> **Guideline:** Normalize identifiers once at event creation and pass them through unchanged across DB/RAG boundaries.
+
+### v0.6.0 — UniversalScraper + Nexus Bridge Fix
+
+- **Bug Fix:** `bridge/nexus.py` now uses unified `ingest_document` instead of separate `ingest_graph_document` + `ingest_vector_document` calls
+  - Root cause: Legacy code predating `ingest_document` API
+  - Prevention: Always use `ingest_document` for structured content (CLAUDE.md guidance)
+- **Feature:** Exported `UniversalScraper`, `scrape_url`, `scrape_urls` from root module
+  - Enables scraping any URL without API keys (uses trafilatura for content extraction)
+  - 26 new tests for universal scraper (209 total tests)
+- **Robustness:** Coverage improved from 78% to ~85% with UniversalScraper tests
+- **Dependency:** Installed trafilatura 2.0.0 (was in pyproject.toml but not installed)
+
+> **Guideline:** When adding new scraper types, always export from root module and add comprehensive tests.
+
+### v0.5.1 — Documentation Sync
+
+- **README.md v0.5.1:** Fixed schedule table (reddit is `*/10 * * * *`, not `*/30`), added symbol utilities to Public API section
+- **AGENTS.md v1.4:** Added `db query` and `jobs run/enable/disable/history` commands
+- **TODO.md v1.3:** Added Phase 2.7 (Symbol Mapping) and Phase 2.8 (Bug Fixes) as completed
+- **MEMORY.md v0.7:** This entry
+
+> **Guideline:** Keep documentation version numbers in sync with the codebase version.
+
+### v0.5.1 — Bug Fix: RAG Ingestion
 
 - **Bug Fix:** `run_all_with_ingest()` now only ingests NEW events instead of ALL events
   - Previously ingested all events on every run, causing duplicate RAG entries

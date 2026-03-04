@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.3.0
 """Bridge for ingesting scraped signal events into Nexus RAG (Neo4j + Qdrant)."""
 
 from __future__ import annotations
@@ -30,26 +30,30 @@ def _ensure_nexus_importable() -> bool:
 
 
 async def ingest_events(events: list[SignalEvent]) -> int:
-    """Ingest signal events into Nexus RAG. Returns count of successfully ingested events."""
+    """Ingest signal events into Nexus RAG using unified ingest_document.
+
+    Uses `ingest_document` which ingests to both graph (Neo4j) and vector (Qdrant)
+    backends in a single call. This is the preferred approach per CLAUDE.md.
+
+    Returns count of successfully ingested events.
+    """
     if not _ensure_nexus_importable():
         logger.error("Cannot ingest — mcp-nexus-rag not available")
         return 0
 
-    from nexus.tools import ingest_graph_document, ingest_vector_document
+    try:
+        from nexus.tools import ingest_document
+    except ImportError:
+        logger.exception("Cannot ingest — failed to import nexus.tools.ingest_document")
+        return 0
 
     ingested = 0
     for event in events:
         text = json.dumps(event.model_dump(mode="json"), indent=2)
-        source_id = f"{event.source}:{event.event_id}"
+        source_id = event.event_id
 
         try:
-            await ingest_graph_document(
-                text=text,
-                project_id=PROJECT_ID,
-                scope=SCOPE,
-                source_identifier=source_id,
-            )
-            await ingest_vector_document(
+            await ingest_document(
                 text=text,
                 project_id=PROJECT_ID,
                 scope=SCOPE,

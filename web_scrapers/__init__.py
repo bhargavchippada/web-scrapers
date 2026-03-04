@@ -1,4 +1,4 @@
-# Version: v0.5.0
+# Version: v0.6.0
 """Web Scrapers — Modular financial intelligence gathering toolkit.
 
 This package provides tools for scraping financial data from Reddit, news RSS feeds,
@@ -15,7 +15,10 @@ Library Usage (from other projects):
         SignalEvent, RedditPost, RedditComment, NewsArticle, SentimentScore,
 
         # Scrapers
-        BaseScraper, RedditScraper, NewsScraper,
+        BaseScraper, RedditScraper, NewsScraper, UniversalScraper,
+
+        # Universal scraping utilities
+        scrape_url, scrape_urls,
 
         # Analysis
         score_sentiment,
@@ -34,6 +37,11 @@ Library Usage (from other projects):
     scraper = RedditScraper()
     events = scraper.scrape()
 
+    # Scrape any URL (no API key needed)
+    result = scrape_url("https://example.com/article")
+    if result.success:
+        print(result.content.title, result.content.text)
+
     # Analyze sentiment
     score = score_sentiment("Bitcoin is mooning!")
 
@@ -44,7 +52,7 @@ Library Usage (from other projects):
     events = get_latest_events(source="reddit", limit=10)
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 # Core models
 # Analysis utilities
@@ -79,6 +87,9 @@ from web_scrapers.models import (
 # Scrapers
 from web_scrapers.scrapers import BaseScraper, NewsScraper, RedditScraper
 
+# Universal scraper (scrape any URL)
+from web_scrapers.scrapers.universal import UniversalScraper, scrape_url, scrape_urls
+
 # Symbol utilities (for filtering by stock ticker)
 from web_scrapers.utils.symbol_mapping import (
     get_all_symbols,
@@ -99,6 +110,10 @@ __all__ = [
     "BaseScraper",
     "NewsScraper",
     "RedditScraper",
+    "UniversalScraper",
+    # Universal scraping utilities
+    "scrape_url",
+    "scrape_urls",
     # Analysis
     "score_sentiment",
     # Coordinator

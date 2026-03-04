@@ -1,7 +1,6 @@
 # Version: v1.0
 """Unit tests for symbol mapping utilities."""
 
-
 from web_scrapers.utils.symbol_mapping import (
     get_all_symbols,
     get_company_names,

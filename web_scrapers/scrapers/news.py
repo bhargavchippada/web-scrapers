@@ -1,4 +1,4 @@
-# Version: v0.1.0
+# Version: v0.3.0
 """News/RSS scraper — fetches articles from configured RSS/Atom feeds."""
 
 from __future__ import annotations
@@ -78,6 +78,8 @@ class NewsScraper(BaseScraper):
             logger.info("Fetching feed: {} ({})", feed_name, url)
             try:
                 events.extend(self._scrape_feed(feed_name, url, category))
+            except httpx.RequestError as exc:
+                logger.warning("Failed to fetch feed {}: {}", feed_name, exc)
             except Exception:
                 logger.exception("Failed to fetch feed: {}", feed_name)
 
@@ -125,6 +127,9 @@ class NewsScraper(BaseScraper):
             ) as client:
                 resp = client.get(url)
                 return resp.status_code == 200
+        except httpx.RequestError as exc:
+            logger.warning("News health check failed: {}", exc)
+            return False
         except Exception:
-            logger.exception("News health check failed")
+            logger.exception("News health check failed with unexpected error")
             return False

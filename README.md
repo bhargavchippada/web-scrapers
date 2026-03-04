@@ -2,7 +2,7 @@
 
 <!-- Executive summary: tech stack, mission, architecture -->
 
-**Version:** v0.4.0
+**Version:** v0.6.1
 
 > See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
@@ -36,6 +36,13 @@ Modular web scraping toolkit for financial intelligence gathering. Collects data
 ```
 
 **Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING) → only NEW events forwarded to Nexus RAG bridge.
+
+## Current Status (v0.6.1)
+
+- **Bug fix:** Nexus bridge now uses stable `source_identifier=event_id` (no duplicate `source:source:id` prefixes)
+- **Reliability:** Bridge now handles missing `nexus.tools.ingest_document` import gracefully
+- **Observability:** News scraper request failures are logged as concise warnings instead of full stack traces for expected network issues
+- **Quality:** Test suite at **211 passing tests** with regression coverage for bridge import failure + source identifier behavior
 
 ## Quick Start
 
@@ -99,9 +106,19 @@ from web_scrapers import (
     BaseScraper,        # ABC for custom scrapers
     RedditScraper,      # Reddit API scraper
     NewsScraper,        # RSS/Atom scraper
+    UniversalScraper,   # Scrape any URL (trafilatura)
+
+    # Universal scraping utilities
+    scrape_url,         # Scrape single URL → ScrapeResult
+    scrape_urls,        # Scrape multiple URLs → list[ScrapeResult]
 
     # Analysis
     score_sentiment,    # VADER sentiment analysis
+
+    # Symbol utilities
+    get_company_names,      # Ticker → list of company names/products
+    is_relevant_to_symbol,  # Check if text mentions a ticker
+    get_all_symbols,        # List all known tickers
 
     # Query helpers (requires DATABASE_URL)
     get_latest_events,      # Get recent events
@@ -129,6 +146,11 @@ from web_scrapers import (
 from web_scrapers import score_sentiment
 score = score_sentiment("Bitcoin is mooning! 🚀")
 print(f"Compound: {score.compound}")  # 0.7506
+
+# Check symbol relevance (filter news by ticker)
+from web_scrapers import is_relevant_to_symbol, get_company_names
+is_relevant_to_symbol("Apple announces new iPhone", "AAPL")  # True
+get_company_names("AAPL")  # ["Apple", "iPhone", "iPad", "Mac", "Tim Cook"]
 
 # Create custom scraper instance
 from web_scrapers import RedditScraper
@@ -219,7 +241,7 @@ poetry run python -m web_scrapers.cli daemon --ingest
 
 | Job | Scraper | Schedule |
 |---|---|---|
-| `reddit-financial` | reddit | Every 30 min (`*/30 * * * *`) |
+| `reddit-financial` | reddit | Every 10 min (`*/10 * * * *`) |
 | `news-rss` | news | Every 15 min (`*/15 * * * *`) |
 
 ## Scrapers
