@@ -2,7 +2,7 @@
 
 <!-- Commands for AI agents: testing, building, running -->
 
-**Version:** v1.3
+**Version:** v1.4
 
 ## Setup
 
@@ -60,8 +60,15 @@ poetry run alembic history
 
 # Stats and queries
 poetry run python -m web_scrapers.cli db stats
+poetry run python -m web_scrapers.cli db query --source reddit --limit 10
+poetry run python -m web_scrapers.cli db query --source news --json
+
+# Job management
 poetry run python -m web_scrapers.cli jobs list
-poetry run python -m web_scrapers.cli jobs history
+poetry run python -m web_scrapers.cli jobs run reddit-financial
+poetry run python -m web_scrapers.cli jobs enable reddit-financial
+poetry run python -m web_scrapers.cli jobs disable news-rss
+poetry run python -m web_scrapers.cli jobs history --scraper reddit --limit 10
 ```
 
 ## Daemon Mode
