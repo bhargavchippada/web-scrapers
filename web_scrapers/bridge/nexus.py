@@ -1,5 +1,5 @@
-# Version: v0.3.0
-"""Bridge for ingesting scraped signal events into Nexus RAG (Neo4j + Qdrant)."""
+# Version: v0.3.1
+"""Bridge for ingesting scraped signal events into Nexus RAG (Memgraph + pgvector)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _ensure_nexus_importable() -> bool:
 async def ingest_events(events: list[SignalEvent]) -> int:
     """Ingest signal events into Nexus RAG using unified ingest_document.
 
-    Uses `ingest_document` which ingests to both graph (Neo4j) and vector (Qdrant)
+    Uses `ingest_document` which ingests to both graph (Memgraph) and vector (pgvector)
     backends in a single call. This is the preferred approach per CLAUDE.md.
 
     Returns count of successfully ingested events.

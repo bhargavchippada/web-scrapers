@@ -2,7 +2,7 @@
 
 <!-- Executive summary: tech stack, mission, architecture -->
 
-**Version:** v0.6.1
+**Version:** v0.6.2
 
 > See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
@@ -27,7 +27,7 @@ Modular web scraping toolkit for financial intelligence gathering. Collects data
 │              BaseScraper ABC → list[SignalEvent]                  │
 ├─────────────────────────────┬────────────────────────────────────┤
 │   DB Layer (SQLAlchemy 2.0) │     Nexus RAG Bridge               │
-│   Repository (DAO)          │  (Neo4j + Qdrant)                  │
+│   Repository (DAO)          │  (Memgraph + pgvector)             │
 │   EventRepo | RunRepo       │                                    │
 │   JobRepo                   │                                    │
 │   ────────────────────────  │                                    │
@@ -39,10 +39,11 @@ Modular web scraping toolkit for financial intelligence gathering. Collects data
 
 ## Current Status (v0.6.1)
 
-- **Bug fix:** Nexus bridge now uses stable `source_identifier=event_id` (no duplicate `source:source:id` prefixes)
-- **Reliability:** Bridge now handles missing `nexus.tools.ingest_document` import gracefully
-- **Observability:** News scraper request failures are logged as concise warnings instead of full stack traces for expected network issues
-- **Quality:** Test suite at **211 passing tests** with regression coverage for bridge import failure + source identifier behavior
+- **211 tests** (174 passing, 37 DB errors — require PostgreSQL `web_scrapers` schema)
+- **Scrapers:** Reddit (PRAW + VADER sentiment), News (feedparser + httpx), Universal (trafilatura)
+- **Database:** PostgreSQL 16 with dedup (`ON CONFLICT DO NOTHING`), APScheduler daemon, Alembic migrations
+- **RAG:** Nexus bridge with unified `ingest_document` API, stable `source_identifier=event_id`
+- **Cross-project:** agentic-trader imports sentiment, feeds, and symbol mapping as path dependency
 
 ## Quick Start
 
@@ -302,8 +303,7 @@ SignalEvent(
 | `REDDIT_CLIENT_ID` | For Reddit | — | Reddit OAuth app client ID |
 | `REDDIT_CLIENT_SECRET` | For Reddit | — | Reddit OAuth app secret |
 | `REDDIT_USER_AGENT` | No | `web-scrapers/0.1` | Reddit API user agent |
-| `NEO4J_URL` | For ingestion | `bolt://localhost:7687` | Neo4j connection URL |
-| `QDRANT_URL` | For ingestion | `http://localhost:6333` | Qdrant connection URL |
+| `MEMGRAPH_URL` | For ingestion | `bolt://localhost:7689` | Memgraph RAG connection URL |
 | `SCRAPER_LOG_LEVEL` | No | `INFO` | Log level |
 
 ### YAML Configs
@@ -318,7 +318,7 @@ When using `--ingest`, only **new** events (after deduplication) are pushed to N
 
 - **project_id:** `WEB_SCRAPERS`
 - **scope:** `WEB_RESEARCH`
-- **Backends:** Neo4j (graph) + Qdrant (vector)
+- **Backends:** Memgraph (graph) + pgvector (vector via PostgreSQL)
 
 ## Adding a New Scraper
 

@@ -1,4 +1,4 @@
-# Version: v0.4.1
+# Version: v0.4.2
 """Application settings loaded from environment variables and YAML configs."""
 
 from __future__ import annotations
@@ -25,8 +25,7 @@ class Settings(BaseSettings):
     reddit_client_secret: str = ""
     reddit_user_agent: str = "web-scrapers/0.1"
 
-    neo4j_url: str = "bolt://localhost:7687"
-    qdrant_url: str = "http://localhost:6333"
+    memgraph_url: str = "bolt://localhost:7689"
     ollama_url: str = "http://localhost:11434"
 
     database_url: str = "postgresql://admin:password123@localhost:5432/turiya_memory"
