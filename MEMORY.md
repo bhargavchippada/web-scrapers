@@ -2,22 +2,22 @@
 
 <!-- Logical state: known bugs, key findings, changelog -->
 
-**Version:** v1.0
+**Version:** v1.1
 
 ## Known Issues
 
 - [ ] 37 test errors in `test_db.py` — `ProgrammingError` from SQLAlchemy (schema/migration issue, not code bug)
 - [ ] Some RSS feeds (Bloomberg, Investing.com) may block automated requests
 - [ ] Daemon not running — needs systemd service or manual start
-- [ ] Low coverage on `bridge/nexus.py` (41%) — requires running Nexus services to test
+- [ ] `bridge/nexus.py` is dead code — Nexus RAG was removed (SurrealDB migration step 1). Remove in Phase 2.
 - [ ] `pyproject.toml` version stuck at `0.5.0` — README/docs reference `v0.6.1`
 
 ## Architecture
 
-- **Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING) → only NEW events forwarded to Nexus RAG bridge
+- **Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING)
 - **Deduplication:** `event_id` is canonical (e.g., `reddit:abc123`, `news:fa3b...`). Never re-prefix in adapters.
 - **DB schema:** 3 tables in `web_scrapers` schema — `signal_events`, `scrape_runs`, `scrape_jobs`
-- **RAG bridge:** Uses `ingest_document` (unified API), `project_id=WEB_SCRAPERS`, `scope=WEB_RESEARCH`
+- **RAG bridge:** Dead code — Nexus RAG removed. Will be replaced by SurrealDB in Phase 2.
 
 ## Cross-Project Dependencies
 

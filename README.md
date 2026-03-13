@@ -2,11 +2,11 @@
 
 <!-- Executive summary: tech stack, mission, architecture -->
 
-**Version:** v0.6.2
+**Version:** v0.6.3
 
 > See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
-Modular web scraping toolkit for financial intelligence gathering. Collects data from Reddit, news RSS feeds, and (future) YouTube transcripts and Twitter/X — feeding it into a deduplicated PostgreSQL database and Nexus RAG for semantic search and graph analysis by AI agents.
+Modular web scraping toolkit for financial intelligence gathering. Collects data from Reddit, news RSS feeds, and (future) YouTube transcripts and Twitter/X — feeding it into a deduplicated PostgreSQL database for analysis by AI agents. Planned migration to SurrealDB 3.0 (Phase 2).
 
 ## Architecture
 
@@ -19,30 +19,28 @@ Modular web scraping toolkit for financial intelligence gathering. Collects data
 │            Cron-triggered jobs → run_tracked()                   │
 ├──────────────────────────────────────────────────────────────────┤
 │                      Coordinator                                 │
-│     scrape() → persist to DB (dedup) → (optional) RAG ingest    │
+│     scrape() → persist to DB (dedup)                             │
 ├────────────┬─────────────┬───────────────────────────────────────┤
 │  Reddit    │  News/RSS   │  (Future: YT, X, SEC)                │
 │  Scraper   │  Scraper    │                                       │
 ├────────────┴─────────────┴───────────────────────────────────────┤
 │              BaseScraper ABC → list[SignalEvent]                  │
-├─────────────────────────────┬────────────────────────────────────┤
-│   DB Layer (SQLAlchemy 2.0) │     Nexus RAG Bridge               │
-│   Repository (DAO)          │  (Memgraph + pgvector)             │
-│   EventRepo | RunRepo       │                                    │
-│   JobRepo                   │                                    │
-│   ────────────────────────  │                                    │
-│   PostgreSQL 16 (pgvector)  │                                    │
-└─────────────────────────────┴────────────────────────────────────┘
+├──────────────────────────────────────────────────────────────────┤
+│   DB Layer (SQLAlchemy 2.0)                                      │
+│   Repository (DAO)                                               │
+│   EventRepo | RunRepo | JobRepo                                  │
+│   ────────────────────────                                       │
+│   PostgreSQL 16 (→ SurrealDB 3.0, Phase 2)                      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-**Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING) → only NEW events forwarded to Nexus RAG bridge.
+**Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING).
 
 ## Current Status (v0.6.1)
 
 - **211 tests** (174 passing, 37 DB errors — require PostgreSQL `web_scrapers` schema)
 - **Scrapers:** Reddit (PRAW + VADER sentiment), News (feedparser + httpx), Universal (trafilatura)
 - **Database:** PostgreSQL 16 with dedup (`ON CONFLICT DO NOTHING`), APScheduler daemon, Alembic migrations
-- **RAG:** Nexus bridge with unified `ingest_document` API, stable `source_identifier=event_id`
 - **Cross-project:** agentic-trader imports sentiment, feeds, and symbol mapping as path dependency
 
 ## Quick Start
@@ -69,9 +67,6 @@ poetry run python -m web_scrapers.cli scrape reddit
 
 # Run all scrapers
 poetry run python -m web_scrapers.cli run-all
-
-# Run all + ingest into Nexus RAG
-poetry run python -m web_scrapers.cli run-all --ingest
 
 # Health check (scrapers + DB)
 poetry run python -m web_scrapers.cli health
@@ -234,8 +229,6 @@ Start a long-running scheduler that executes enabled jobs on their cron schedule
 # Run daemon (persists to DB only)
 poetry run python -m web_scrapers.cli daemon
 
-# Run daemon + ingest new events into Nexus RAG
-poetry run python -m web_scrapers.cli daemon --ingest
 ```
 
 ### Default Jobs (`config/jobs.yaml`)
@@ -303,7 +296,6 @@ SignalEvent(
 | `REDDIT_CLIENT_ID` | For Reddit | — | Reddit OAuth app client ID |
 | `REDDIT_CLIENT_SECRET` | For Reddit | — | Reddit OAuth app secret |
 | `REDDIT_USER_AGENT` | No | `web-scrapers/0.1` | Reddit API user agent |
-| `MEMGRAPH_URL` | For ingestion | `bolt://localhost:7689` | Memgraph RAG connection URL |
 | `SCRAPER_LOG_LEVEL` | No | `INFO` | Log level |
 
 ### YAML Configs
@@ -311,14 +303,6 @@ SignalEvent(
 - `config/subreddits.yaml` — Target subreddits with sort order, limit, category, comments_limit
 - `config/feeds.yaml` — RSS feed URLs with name and category
 - `config/jobs.yaml` — Scheduled job definitions (name, scraper, cron, enabled)
-
-## RAG Ingestion
-
-When using `--ingest`, only **new** events (after deduplication) are pushed to Nexus RAG:
-
-- **project_id:** `WEB_SCRAPERS`
-- **scope:** `WEB_RESEARCH`
-- **Backends:** Memgraph (graph) + pgvector (vector via PostgreSQL)
 
 ## Adding a New Scraper
 
