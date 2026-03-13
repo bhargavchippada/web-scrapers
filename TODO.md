@@ -2,12 +2,47 @@
 
 <!-- Pending tasks: [ ] incomplete, [x] completed -->
 
-**Version:** v1.6
+**Version:** v1.7
+
+## SurrealDB Migration (Phase 2)
+
+> **Workspace artifact:** `artifacts/2026-03-11/ANTIGRAVITY_ARCHITECTURE_surrealdb_migration_plan.md`
+> **Goal:** Replace 3 PostgreSQL tables with SurrealDB 3.0 + enable full-text search on signal payloads
+> **Estimated effort:** 1-2 sessions
+
+### Infrastructure
+- [ ] Add `surrealdb[pydantic]` to `pyproject.toml`
+- [ ] Create `web_scrapers/db/surreal_client.py` — Async SurrealDB client
+- [ ] Create `scripts/surrealdb-schema.surql` — 3 tables + FTS index + computed searchable_text field
+- [ ] Add `SURREAL_*` env vars to config
+
+### Migration
+- [ ] Migrate scrape_jobs table → SurrealDB `scrape_job`
+- [ ] Migrate scrape_runs table → SurrealDB `scrape_run` with `record<scrape_job>` link
+- [ ] Migrate signal_events table → SurrealDB `signal_event` with UNIQUE event_id dedup
+- [ ] Replace `ON CONFLICT DO UPDATE` with SurrealDB `ON DUPLICATE KEY UPDATE`
+- [ ] Replace `engine.py` SQLAlchemy engine with SurrealDB connection
+- [ ] Rewrite `repository.py` with SurrealQL queries
+- [ ] Create `scripts/migrate-pg-to-surreal.py` — One-time data migration
+
+### New Capabilities (enabled by SurrealDB)
+- [ ] Full-text search on signal payloads via computed `searchable_text` field + BM25 index
+- [ ] Record links replace FK joins (scrape_job → scrape_run → signal_event)
+
+### Validation
+- [ ] Verify row counts match across all 3 tables
+- [ ] Test dedup: duplicate event_ids correctly update payload + scraped_at
+- [ ] Benchmark FTS queries on signal content
+
+### Cleanup (after validation)
+- [ ] Remove SQLAlchemy models (keep Pydantic models in `models/`)
+- [ ] Archive `alembic/` directory
+- [ ] Remove `psycopg2-binary` dependency
 
 ## Maintenance
 
 - [ ] Bump `pyproject.toml` version to `0.6.1` (currently `0.5.0`, out of sync with README/MEMORY)
-- [ ] Fix 37 test errors in `test_db.py` (SQLAlchemy `ProgrammingError` — schema/migration issue)
+- [ ] Fix 37 test errors in `test_db.py` (SQLAlchemy `ProgrammingError` — schema/migration issue; will be resolved by SurrealDB migration)
 - [ ] Improve bridge test coverage (`bridge/nexus.py` at 41%)
 - [ ] Set up systemd service for daemon mode (currently manual start only)
 
@@ -19,9 +54,8 @@
 
 ## Phase 4 — Infrastructure
 
-- [ ] pgvector embeddings in PostgreSQL
 - [ ] Grafana dashboards for scrape stats
-- [ ] Real-time streaming to Nexus RAG
+- [ ] Real-time streaming to Nexus RAG (via SurrealDB LIVE SELECT or bridge)
 
 ## Completed (Archive)
 
