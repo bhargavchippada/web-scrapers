@@ -1,2 +1,2 @@
-# Version: v0.1.0
-"""Nexus RAG ingestion bridge."""
+# Version: v0.2.0
+"""Integration bridges for external systems."""

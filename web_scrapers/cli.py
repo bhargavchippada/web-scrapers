@@ -1,9 +1,8 @@
-# Version: v0.2.0
+# Version: v0.3.0
 """CLI entry point for web-scrapers."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 from datetime import datetime
@@ -66,27 +65,19 @@ def scrape_news(
 
 @app.command("run-all")
 def run_all_cmd(
-    ingest: bool = typer.Option(False, "--ingest", help="Ingest events into Nexus RAG"),
     output_json: bool = typer.Option(False, "--json", help="Output events as JSON"),
     no_persist: bool = typer.Option(False, "--no-persist", help="Skip database persistence"),
 ) -> None:
     """Run all configured scrapers."""
     _setup_logging()
+    from web_scrapers.coordinator import run_all
 
-    if ingest:
-        from web_scrapers.coordinator import run_all_with_ingest
-
-        total, ingested = asyncio.run(run_all_with_ingest())
-        typer.echo(f"Collected {total} events, ingested {ingested} into Nexus RAG")
+    events = run_all(persist=not no_persist)
+    if output_json:
+        for ev in events:
+            typer.echo(ev.model_dump_json())
     else:
-        from web_scrapers.coordinator import run_all
-
-        events = run_all(persist=not no_persist)
-        if output_json:
-            for ev in events:
-                typer.echo(ev.model_dump_json())
-        else:
-            typer.echo(f"Collected {len(events)} total events")
+        typer.echo(f"Collected {len(events)} total events")
 
 
 @app.command("health")
@@ -292,7 +283,6 @@ def jobs_list() -> None:
 @jobs_app.command("run")
 def jobs_run(
     name: str = typer.Argument(help="Job name to run"),
-    ingest: bool = typer.Option(False, "--ingest", help="Also ingest into Nexus RAG"),
 ) -> None:
     """Manually trigger a specific scraping job."""
     _setup_logging()
@@ -311,8 +301,8 @@ def jobs_run(
 
     from web_scrapers.coordinator import run_tracked
 
-    total, new, ingested = run_tracked(job.scraper, job_id=job.id, job_name=job.name, ingest=ingest)
-    typer.echo(f"Job '{name}' complete: {total} scraped, {new} new, {ingested} ingested")
+    total, new = run_tracked(job.scraper, job_id=job.id, job_name=job.name)
+    typer.echo(f"Job '{name}' complete: {total} scraped, {new} new")
 
 
 @jobs_app.command("enable")
@@ -391,14 +381,12 @@ def jobs_history(
 
 
 @app.command("daemon")
-def daemon_cmd(
-    ingest: bool = typer.Option(False, "--ingest", help="Also ingest new events into Nexus RAG"),
-) -> None:
+def daemon_cmd() -> None:
     """Start the scheduler daemon — runs enabled jobs on their cron schedules."""
     _setup_logging()
     from web_scrapers.scheduler.scheduler import run_daemon
 
-    run_daemon(ingest=ingest)
+    run_daemon()
 
 
 # ─── Entry point ────────────────────────────────────────────────────────

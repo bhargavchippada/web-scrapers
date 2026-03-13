@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.3.0
 """Tests for the Typer CLI commands."""
 
 from __future__ import annotations
@@ -84,13 +84,6 @@ class TestRunAll:
         result = runner.invoke(app, ["run-all", "--json"])
         assert result.exit_code == 0
         assert "source" in result.output
-
-    @patch("web_scrapers.cli.asyncio.run", return_value=(5, 3))
-    def test_run_all_with_ingest(self, mock_async_run: MagicMock) -> None:
-        result = runner.invoke(app, ["run-all", "--ingest"])
-        assert result.exit_code == 0
-        assert "5 events" in result.output
-        assert "3" in result.output
 
 
 class TestHealth:
@@ -186,7 +179,7 @@ class TestJobsRun:
                 "web_scrapers.db.repository.JobRepository.get_by_name",
                 return_value=mock_job,
             ),
-            patch("web_scrapers.coordinator.run_tracked", return_value=(10, 5, 0)),
+            patch("web_scrapers.coordinator.run_tracked", return_value=(10, 5)),
         ):
             result = runner.invoke(app, ["jobs", "run", "reddit-financial"])
         assert result.exit_code == 0
@@ -212,10 +205,4 @@ class TestDaemon:
     def test_daemon_invokes_scheduler(self, mock_daemon: MagicMock) -> None:
         result = runner.invoke(app, ["daemon"])
         assert result.exit_code == 0
-        mock_daemon.assert_called_once_with(ingest=False)
-
-    @patch("web_scrapers.scheduler.scheduler.run_daemon")
-    def test_daemon_with_ingest(self, mock_daemon: MagicMock) -> None:
-        result = runner.invoke(app, ["daemon", "--ingest"])
-        assert result.exit_code == 0
-        mock_daemon.assert_called_once_with(ingest=True)
+        mock_daemon.assert_called_once_with()

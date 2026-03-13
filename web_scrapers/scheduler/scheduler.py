@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.3.0
 """APScheduler-based daemon for scheduled scraping jobs."""
 
 from __future__ import annotations
@@ -15,23 +15,22 @@ from web_scrapers.db.engine import get_session
 from web_scrapers.db.repository import JobRepository
 
 
-def _execute_job(job_id: int, job_name: str, scraper: str, ingest: bool = False) -> None:
+def _execute_job(job_id: int, job_name: str, scraper: str) -> None:
     """Callback for APScheduler — runs a single tracked scrape."""
     logger.info("Scheduler executing job: {} (scraper={})", job_name, scraper)
     try:
-        total, new, ingested = run_tracked(scraper, job_id=job_id, job_name=job_name, ingest=ingest)
+        total, new = run_tracked(scraper, job_id=job_id, job_name=job_name)
         logger.info(
-            "Job {} complete: {} total, {} new, {} ingested",
+            "Job {} complete: {} total, {} new",
             job_name,
             total,
             new,
-            ingested,
         )
     except Exception:
         logger.exception("Job {} failed", job_name)
 
 
-def build_scheduler(ingest: bool = False) -> BlockingScheduler:
+def build_scheduler() -> BlockingScheduler:
     """Build scheduler from DB job definitions."""
     scheduler = BlockingScheduler()
 
@@ -49,7 +48,7 @@ def build_scheduler(ingest: bool = False) -> BlockingScheduler:
             scheduler.add_job(
                 _execute_job,
                 trigger=trigger,
-                args=[job.id, job.name, job.scraper, ingest],
+                args=[job.id, job.name, job.scraper],
                 id=f"scrape_{job.name}",
                 name=f"Scrape: {job.name}",
                 replace_existing=True,
@@ -64,10 +63,10 @@ def build_scheduler(ingest: bool = False) -> BlockingScheduler:
     return scheduler
 
 
-def run_daemon(ingest: bool = False) -> None:
+def run_daemon() -> None:
     """Start the blocking scheduler daemon."""
     logger.info("Starting web-scrapers daemon...")
-    scheduler = build_scheduler(ingest=ingest)
+    scheduler = build_scheduler()
 
     def _shutdown(signum, _frame):
         logger.info("Received signal {}, shutting down...", signum)

@@ -1,4 +1,4 @@
-# Version: v0.2.0
+# Version: v0.3.0
 """Tests for the scraper coordinator."""
 
 from __future__ import annotations
@@ -113,11 +113,10 @@ class TestRunTracked:
         mock_event_repo.get_new_event_ids.return_value = {"r:1"}
         mock_event_repo.bulk_upsert.return_value = 1
 
-        total, new, ingested = run_tracked("reddit", job_name="test-job")
+        total, new = run_tracked("reddit", job_name="test-job")
 
         assert total == 1
         assert new == 1
-        assert ingested == 0
         mock_run_repo.complete_run.assert_called_once_with(mock_run_obj, 1, 1, 0)
 
     @patch("web_scrapers.coordinator.run_single")
@@ -157,7 +156,7 @@ class TestRunTracked:
         mock_run_cls: MagicMock,
         mock_run: MagicMock,
     ) -> None:
-        """When all events are duplicates, new_count=0 and no ingestion."""
+        """When all events are duplicates, new_count=0."""
         mock_event = SignalEvent(source="reddit", event_type="post", payload={}, event_id="r:dup")
         mock_run.return_value = [mock_event]
         mock_get_session.return_value = MagicMock()
@@ -170,8 +169,7 @@ class TestRunTracked:
         mock_event_repo.get_new_event_ids.return_value = set()
         mock_event_repo.bulk_upsert.return_value = 0
 
-        total, new, ingested = run_tracked("reddit", ingest=True)
+        total, new = run_tracked("reddit")
 
         assert total == 1
         assert new == 0
-        assert ingested == 0
