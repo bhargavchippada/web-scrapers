@@ -2,12 +2,14 @@
 
 <!-- Pending tasks: [ ] incomplete, [x] completed -->
 
-**Version:** v1.7
+**Version:** v1.8
 
-## SurrealDB Migration (Phase 2)
+## SurrealDB Migration (v2 — deferred)
 
+> **Status:** Deferred to v2 — workspace v1.0 milestone complete with GC/AT/MC migrated. Web Scrapers remains on PostgreSQL.
 > **Workspace artifact:** `artifacts/2026-03-11/ANTIGRAVITY_ARCHITECTURE_surrealdb_migration_plan.md`
 > **Goal:** Replace 3 PostgreSQL tables with SurrealDB 3.0 + enable full-text search on signal payloads
+> **SurrealDB target:** namespace `antigravity`, database `web_scrapers` (credentials: turiya/antigravity)
 > **Estimated effort:** 1-2 sessions
 
 ### Infrastructure
@@ -41,9 +43,8 @@
 
 ## Maintenance
 
-- [ ] Bump `pyproject.toml` version to `0.6.1` (currently `0.5.0`, out of sync with README/MEMORY)
-- [ ] Fix 37 test errors in `test_db.py` (SQLAlchemy `ProgrammingError` — schema/migration issue; will be resolved by SurrealDB migration)
-- [ ] Improve bridge test coverage (`bridge/nexus.py` at 41%)
+- [ ] Bump `pyproject.toml` version to `0.7.0` (currently `0.5.0`, out of sync with README/MEMORY)
+- [ ] Remove dead code in `bridge/nexus.py` (Nexus RAG removed — dead since SurrealDB migration step 1)
 - [ ] Set up systemd service for daemon mode (currently manual start only)
 
 ## Phase 3 — New Scrapers
@@ -55,7 +56,7 @@
 ## Phase 4 — Infrastructure
 
 - [ ] Grafana dashboards for scrape stats
-- [ ] Real-time streaming to Nexus RAG (via SurrealDB LIVE SELECT or bridge)
+- [ ] Real-time streaming via SurrealDB LIVE SELECT (replaces removed Nexus RAG bridge)
 
 ## Completed (Archive)
 

@@ -2,7 +2,7 @@
 
 <!-- Executive summary: tech stack, mission, architecture -->
 
-**Version:** v0.6.3
+**Version:** v0.7.0
 
 > See [AGENTS.md](AGENTS.md) for commands | [MEMORY.md](MEMORY.md) for state | [TODO.md](TODO.md) for tasks
 
@@ -36,12 +36,13 @@ Modular web scraping toolkit for financial intelligence gathering. Collects data
 
 **Data flow:** `Scraper.scrape()` → `list[SignalEvent]` → `EventRepository.bulk_upsert()` (ON CONFLICT DO NOTHING).
 
-## Current Status (v0.6.1)
+## Current Status (v0.7.0)
 
-- **211 tests** (174 passing, 37 DB errors — require PostgreSQL `web_scrapers` schema)
+- **205 tests passing**
 - **Scrapers:** Reddit (PRAW + VADER sentiment), News (feedparser + httpx), Universal (trafilatura)
 - **Database:** PostgreSQL 16 with dedup (`ON CONFLICT DO NOTHING`), APScheduler daemon, Alembic migrations
 - **Cross-project:** agentic-trader imports sentiment, feeds, and symbol mapping as path dependency
+- **SurrealDB migration:** Deferred to v2 — workspace v1.0 milestone complete with GC/AT/MC migrated
 
 ## Quick Start
 
@@ -339,10 +340,17 @@ poetry run ruff format .                       # Auto-format
 - **loguru** — Structured logging
 - **Poetry** — Package management
 
-## Future (Phase 3)
+## Future
 
+### v2 — SurrealDB Migration
+- Replace PostgreSQL with SurrealDB 3.0 (namespace: `antigravity`, database: `web_scrapers`)
+- Full-text search on signal payloads via BM25 index
+- Record links replace FK joins
+
+### Phase 3 — New Scrapers
 - **YouTube Transcript Scraper** — `youtube-transcript-api` for financial channel transcripts
 - **Twitter/X Scraper** — `tweepy` or `snscrape` for market-moving tweets
 - **SEC EDGAR Scraper** — 8-K filings (reference: `~/.openclaw/workspace/projects/sentinel/sec_scraper.py`)
-- **pgvector embeddings** — Store embeddings in PostgreSQL alongside events
+
+### Phase 4 — Infrastructure
 - **Grafana dashboards** — Visualize scrape stats and event trends

@@ -2,15 +2,21 @@
 
 <!-- Logical state: known bugs, key findings, changelog -->
 
-**Version:** v1.1
+**Version:** v1.2
+
+## Workspace v1.0 Milestone
+
+- Workspace v1.0 milestone complete (2026-03-14) — GC, AT, MC migrated to SurrealDB 3.0
+- Web Scrapers SurrealDB migration deferred to v2 — still uses PostgreSQL via SQLAlchemy 2.0
+- SurrealDB credentials for v2 migration: namespace `antigravity`, database `web_scrapers`, user `turiya`, password `antigravity`
+- Mission Control reddit routes return empty array (scope note: web-scrapers migration is v2)
 
 ## Known Issues
 
-- [ ] 37 test errors in `test_db.py` — `ProgrammingError` from SQLAlchemy (schema/migration issue, not code bug)
 - [ ] Some RSS feeds (Bloomberg, Investing.com) may block automated requests
 - [ ] Daemon not running — needs systemd service or manual start
-- [ ] `bridge/nexus.py` is dead code — Nexus RAG was removed (SurrealDB migration step 1). Remove in Phase 2.
-- [ ] `pyproject.toml` version stuck at `0.5.0` — README/docs reference `v0.6.1`
+- [ ] `bridge/nexus.py` is dead code — Nexus RAG was removed (SurrealDB migration step 1). Remove in v2.
+- [ ] `pyproject.toml` version stuck at `0.5.0` — README/docs reference `v0.7.0`
 
 ## Architecture
 
@@ -38,8 +44,9 @@
 
 | Version | Key Changes |
 |---------|-------------|
-| v0.6.1 | Fix bridge `source_identifier` duplication, harden network error logging (211 tests) |
-| v0.6.0 | UniversalScraper (trafilatura), fix bridge to use unified `ingest_document` (209 tests) |
+| v0.7.0 | Documentation update for workspace v1.0 milestone, SurrealDB migration deferred to v2 (205 tests) |
+| v0.6.1 | Fix bridge `source_identifier` duplication, harden network error logging |
+| v0.6.0 | UniversalScraper (trafilatura), fix bridge to use unified `ingest_document` |
 | v0.5.1 | Fix `run_all_with_ingest()` duplicate RAG ingestion, doc sync (183 tests) |
 | v0.5.0 | Symbol mapping, cross-project integration with agentic-trader (183 tests) |
 | v0.4.0 | Library packaging (`pip install -e`), public API, query helpers (172 tests) |

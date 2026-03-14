@@ -2,7 +2,7 @@
 
 <!-- Commands for AI agents: testing, building, running -->
 
-**Version:** v1.5
+**Version:** v1.6
 
 ## Setup
 
@@ -38,7 +38,7 @@ poetry run python -m web_scrapers.cli health
 ## Test
 
 ```bash
-poetry run pytest                                              # All tests (211 total)
+poetry run pytest                                              # All tests (205 total)
 poetry run pytest -m integration                               # Integration tests (requires PostgreSQL)
 poetry run pytest --cov=web_scrapers --cov-report=term-missing # With coverage
 ```
